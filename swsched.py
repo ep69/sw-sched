@@ -55,7 +55,7 @@ for s in range(len(slots)):
                 lessons[(s,r,t,c)] = model.NewBoolVar("s%ir%it%ic%i" % (s,r,t,c))
 
 # one teacher can teach just one course at any given timeslot (except for 'nobody')
-for t in range(1,len(teachers)):
+for t in range(1, len(teachers)):
     for s in range(len(slots)):
         model.Add(sum(lessons[(s,r,t,c)] for r in range(len(rooms)) for c in range(len(courses))) <= 1)
 
@@ -77,11 +77,16 @@ for s in range(len(slots)):
 
 # every regular course is taught by two teachers and solo course by one teacher
 for c in range(len(courses)):
-    model.Add(sum(lessons[(s,r,t,c)] for s in range(len(slots)) for r in range(len(rooms)) for t in range(len(teachers))) == 2)
     if courses[c] in courses_regular:
+        # one leader must teach
+        model.Add(sum(lessons[(s,r,Teachers[T],c)] for s in range(len(slots)) for r in range(len(rooms)) for T in teachers_lead) == 1)
+        # one follow must teach
+        model.Add(sum(lessons[(s,r,Teachers[T],c)] for s in range(len(slots)) for r in range(len(rooms)) for T in teachers_follow) == 1)
         # 'nobody' must not teach
         model.Add(sum(lessons[(s,r,0,c)] for s in range(len(slots)) for r in range(len(rooms))) == 0)
     else: # solo course
+        # one real teacher must teach
+        model.Add(sum(lessons[(s,r,t,c)] for s in range(len(slots)) for r in range(len(rooms)) for t in range(1, len(teachers))) == 1)
         # 'nobody' must teach
         model.Add(sum(lessons[(s,r,0,c)] for s in range(len(slots)) for r in range(len(rooms))) == 1)
 
@@ -91,7 +96,7 @@ solver.Solve(model)
 
 for s in range(len(slots)):
     for r in range(len(rooms)):
-        for t in range(len(teachers)):
+        for t in range(1, len(teachers)): # do not print nobody's courses
             for c in range(len(courses)):
                 if solver.Value(lessons[(s,r,t,c)]):
                     print("%s in %s room, %s teaches %s" % (slots[s],rooms[r],teachers[t],courses[c]))

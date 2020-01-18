@@ -7,107 +7,106 @@ days = [
         "Tuesday"
         ]
 
-slots = [
+times = [
         "17:30-18:40",
         "18:45-19:55",
         "20:00-21:10"
         ]
+
+slots = [ d + " " + t for d in days for t in times ]
+print(slots)
 
 rooms = [
         "big",
         "small"
         ]
 
-teachers = [
+teachers_lead = [
         "David",
-        "Terka",
         "Tom",
+        ]
+teachers_follow = [
+        "Terka",
         "Janca"
         ]
+teachers = teachers_lead + teachers_follow
 Teachers = {}
 for (i, t) in enumerate(teachers):
     Teachers[t] = i
 
-solo_courses = [ "Solo Jazz" ]
-normal_courses = [
+courses_regular = [
         "LH1",
         "LH5",
         "Airsteps"
         ]
-courses = normal_courses + solo_courses
+courses_solo = [
+        "Solo Jazz"
+        ]
+courses = courses_regular + courses_solo
 Courses = {}
 for (i, c) in enumerate(courses):
     Courses[c] = i
 
-
-
 model = cp_model.CpModel()
 
-# on day D at slot S in room R teacher T teaches course C
-lessons = {}
-for d in range(len(days)):
-    for s in range(len(slots)):
-        for r in range(len(rooms)):
-            for t in range(len(teachers)):
-                for c in range(len(courses)):
-                    lessons[(d,s,r,t,c)] = model.NewBoolVar("d%is%ir%it%ic%i" % (d,s,r,t,c))
-print("Total variables: %d" % len(lessons))
+# Variables
 
-# one teacher can teach just one course at any given timeslot
-for t in range(len(teachers)):
-    for d in range(len(days)):
-        for s in range(len(slots)):
-            model.Add(sum(lessons[(d,s,r,t,c)] for r in range(len(rooms)) for c in range(len(courses))) <= 1)
+# course C takes place in slot S in room R
+csr = {}
+for s in range(len(slots)):
+    for r in range(len(rooms)):
+        for c in range(len(courses)):
+            csr[(s,r,c)] = model.NewBoolVar("CS:s%ir%ic%i" % (s,r,c))
+# course C is taught by teacher T
+ct = {}
+for c in range(len(courses)):
+    for t in range(len(teachers)):
+        ct[(t,c)] = model.NewBoolVar("CT:t%ic%i" % (t,c))
 
-# one course takes place just in one time in one room
-for d in range(len(days)):
-    for s in range(len(slots)):
-        for r in range(len(rooms)):
-            for c in range(len(courses)):
-                sss = sum(lessons[(d,s,r,t,c)] for t in range(len(teachers)))
-                if courses[c] in normal_courses:
-                    #model.Add(sum(lessons[(d,s,r,t,c)] for t in range(len(teachers))) in [0,2])
-                    model.Add(sss in [0,2])
-                    #model.Add(sss == 2 or sss == 0)
-                else: # solo
-                    model.Add(sum(lessons[(d,s,r,t,c)] for t in range(len(teachers))) in [0,1])
+# one course takes place at one time in one room
+for c in range(len(courses)):
+    model.Add(sum(csr[(s,r,c)] for s in range(len(slots)) for r in range(len(rooms))) == 1)
 
+# at one time in one room, there is maximum one course
+for s in range(len(slots)):
+    for r in range(len(rooms)):
+        model.Add(sum(csr[(s,r,c)] for c in range(len(courses))) <= 1)
 
 # every regular course is taught by two teachers and solo course by one teacher
 for c in range(len(courses)):
-    if courses[c] in normal_courses:
-        model.Add(sum(lessons[(d,s,r,t,c)] for d in range(len(days)) for s in range(len(slots)) for r in range(len(rooms)) for t in range(len(teachers))) == 2)
-    else: # solo course
-        model.Add(sum(lessons[(d,s,r,t,c)] for d in range(len(days)) for s in range(len(slots)) for r in range(len(rooms)) for t in range(len(teachers))) == 1)
+    if courses[c] in courses_regular:
+        model.Add(sum(ct[(Teachers[T],c)] for T in teachers_lead) == 1)
+        model.Add(sum(ct[(Teachers[T],c)] for T in teachers_follow) == 1)
+    else:
+        model.Add(sum(ct[(Teachers[T],c)] for T in teachers) == 1)
 
-#for d in range(len(days)):
+# one teacher can teach just one course at any given timeslot
+#for t in range(len(teachers)):
 #    for s in range(len(slots)):
-#        for r in range(len(rooms)):
-#            # in one spacetime (day+slot+room) there is max. one course
-#            #model.Add(sum(c
-#            #model.Add(sum(lessons[(d,s,r,t,c)] for t in range(len(teachers)) for c in range(len(courses))) <= 2)
-#            # every regular course is teached by exactly two teachers
-#            model.Add(sum(lessons[(d,s,r,t,Courses[c])] for t in range(len(teachers)) for c in normal_courses) == 2)
-#            # every solo course is teached by exactly one teacher
-#            model.Add(sum(lessons[(d,s,r,t,Courses[c])] for t in range(len(teachers)) for c in solo_courses) == 1)
-#            # teacher can be in one momen in one room teaching max. one course
-#            for t in range(len(teachers)):
-#                model.Add(sum(lessons[(d,s,r,t,c)] for c in range(len(courses))) <= 1)
-
-#for c in range(len(courses)):
-#    if courses[c] in solo_courses:
-#        model.Add(sum(lessons[(d,s,r,t,c)] for d in range(len(days)) for s in range(len(slots)) for r in range(len(rooms)) for t in range(len(teachers))) <= 2)
-#    else:
-#        model.Add(sum(lessons[(d,s,r,t,c)] for d in range(len(days)) for s in range(len(slots)) for r in range(len(rooms)) for t in range(len(teachers))) <= 1)
+#        model.Add(sum(csr[(s,r,c)] * ct[(t,c)] for r in range(len(rooms)) for c in range(len(courses))) <= 1)
+# TODO
+teaches_slot = {}
+for t in range(len(teachers)):
+    for s in range(len(slots)):
+        ts = model.NewBoolVar("")
+        teaches_slot[(t,s)] = model.NewBoolVar("TS:t%is%i" % (t,s))
+        model.AddBoolAnd(csr[(s,r,c)] and ct[(t,c)] for r in range(len(rooms)) for c in range(len(courses))).OnlyEnforceIf(ts)
+        model.Add(sum(csr[(s,r,c)] and ct[(t,c)] for r in range(len(rooms)) for c in range(len(courses))) == 1).OnlyEnforceIf(ts)
+        model.Add(sum(csr[(s,r,c)] and ct[(t,c)] for r in range(len(rooms)) for c in range(len(courses))) != 1).OnlyEnforceIf(ts.Not())
+        teaches_slot[t,s] = ts
+for t in range(len(teachers)):
+    model.Add(sum(teaches_slot[t,s] for s in range(len(slots))) <= 1)
 
 solver = cp_model.CpSolver()
 solver.Solve(model)
 
-for d in range(len(days)):
-    for s in range(len(slots)):
-        for r in range(len(rooms)):
-            for t in range(len(teachers)):
-                for c in range(len(courses)):
-                    if solver.Value(lessons[(d,s,r,t,c)]):
-                        print("On %s at %s in %s room, %s teaches %s" % (days[d],slots[s],rooms[r],teachers[t],courses[c]))
+for s in range(len(slots)):
+    for r in range(len(rooms)):
+        for c in range(len(courses)):
+            if solver.Value(csr[(s,r,c)]):
+                print("%s in %s room: %s" % (slots[s],rooms[r],courses[c]))
 
+for t in range(len(teachers)):
+    for c in range(len(courses)):
+        if solver.Value(ct[(t,c)]):
+                print("%s taught by %s" % (courses[c],teachers[t]))

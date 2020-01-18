@@ -19,6 +19,7 @@ rooms = [
         ]
 
 teachers = [
+        "nobody",
         "David",
         "Terka",
         "Tom",
@@ -51,10 +52,9 @@ for d in range(len(days)):
             for t in range(len(teachers)):
                 for c in range(len(courses)):
                     lessons[(d,s,r,t,c)] = model.NewBoolVar("d%is%ir%it%ic%i" % (d,s,r,t,c))
-print("Total variables: %d" % len(lessons))
 
-# one teacher can teach just one course at any given timeslot
-for t in range(len(teachers)):
+# one teacher can teach just one course at any given timeslot (except for 'nobody')
+for t in range(1,len(teachers)):
     for d in range(len(days)):
         for s in range(len(slots)):
             model.Add(sum(lessons[(d,s,r,t,c)] for r in range(len(rooms)) for c in range(len(courses))) <= 1)
@@ -63,22 +63,28 @@ for t in range(len(teachers)):
 for d in range(len(days)):
     for s in range(len(slots)):
         for r in range(len(rooms)):
-            for c in range(len(courses)):
-                sss = sum(lessons[(d,s,r,t,c)] for t in range(len(teachers)))
-                if courses[c] in normal_courses:
-                    #model.Add(sum(lessons[(d,s,r,t,c)] for t in range(len(teachers))) in [0,2])
-                    model.Add(sss in [0,2])
-                    #model.Add(sss == 2 or sss == 0)
-                else: # solo
-                    model.Add(sum(lessons[(d,s,r,t,c)] for t in range(len(teachers))) in [0,1])
+            # prevent more courses in same time and room
+            sum_records = sum(lessons[(d,s,r,t,c)] for t in range(len(teachers)) for c in range(len(courses)))
+            hit = model.NewBoolVar("")
+            model.Add(sum_records == 2).OnlyEnforceIf(hit)
+            model.Add(sum_records == 0).OnlyEnforceIf(hit.Not())
+            # prevent one course from being in multiple times or rooms
+            for c in range(len(courses)): # one course does not span more 
+                sum_courses = sum(lessons[(d,s,r,t,c)] for t in range(len(teachers)))
+                hit = model.NewBoolVar("")
+                model.Add(sum_courses == 2).OnlyEnforceIf(hit)
+                model.Add(sum_courses == 0).OnlyEnforceIf(hit.Not())
 
 
 # every regular course is taught by two teachers and solo course by one teacher
 for c in range(len(courses)):
+    model.Add(sum(lessons[(d,s,r,t,c)] for d in range(len(days)) for s in range(len(slots)) for r in range(len(rooms)) for t in range(len(teachers))) == 2)
     if courses[c] in normal_courses:
-        model.Add(sum(lessons[(d,s,r,t,c)] for d in range(len(days)) for s in range(len(slots)) for r in range(len(rooms)) for t in range(len(teachers))) == 2)
+        # 'nobody' must not teach
+        model.Add(sum(lessons[(d,s,r,0,c)] for d in range(len(days)) for s in range(len(slots)) for r in range(len(rooms))) == 0)
     else: # solo course
-        model.Add(sum(lessons[(d,s,r,t,c)] for d in range(len(days)) for s in range(len(slots)) for r in range(len(rooms)) for t in range(len(teachers))) == 1)
+        # 'nobody' must teach
+        model.Add(sum(lessons[(d,s,r,0,c)] for d in range(len(days)) for s in range(len(slots)) for r in range(len(rooms))) == 1)
 
 #for d in range(len(days)):
 #    for s in range(len(slots)):

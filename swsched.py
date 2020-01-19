@@ -86,8 +86,6 @@ Courses = {}
 for (i, c) in enumerate(courses):
     Courses[c] = i
 
-
-
 model = cp_model.CpModel()
 
 # on day D at slot S in room R teacher T teaches course C
@@ -142,6 +140,21 @@ for c in range(len(courses)):
     else:
         sys.exit(10) # TODO proper fail
 
+# OPTIMIZATION
+PENALTY_OVERWORK = 100
+penalties_overwork = []
+teach_slots = 2*len(courses_regular) + len(courses_solo)
+util_avg = teach_slots // (len(teachers)-2) + 1
+print(f"Utilization plan average: {util_avg}")
+for t in range(2, len(teachers)):
+    teached = model.NewIntVar(0, len(slots), "TT:%i" % t)
+    model.Add(teached == sum(lessons[(s,r,t,c)] for s in range(len(slots)) for r in range(len(rooms)) for c in range(len(courses))))
+    diff = model.NewIntVar(-util_avg, len(slots), "TD:%i" % t)
+    model.Add(diff == teached - util_avg)
+    excess = model.NewIntVar(0, len(slots), "TE:%i" % t)
+    model.AddMaxEquality(excess, [diff, 0])
+    penalties_overwork.append(excess)
+model.Minimize(sum(penalties_overwork[i] * PENALTY_OVERWORK for i in range(len(penalties_overwork))))
 
 print(model.ModelStats())
 print()
@@ -149,7 +162,7 @@ print()
 
 solver = cp_model.CpSolver()
 #solver.parameters.max_time_in_seconds = 20.0
-status = solver.SearchForAllSolutions(model, cp_model.ObjectiveSolutionPrinter())
+status = solver.SolveWithSolutionCallback(model, cp_model.ObjectiveSolutionPrinter())
 statusname = solver.StatusName(status)
 print(f"Solving finished in {solver.WallTime()} seconds with status {status} - {statusname}")
 if statusname not in ["FEASIBLE", "OPTIMAL"]:

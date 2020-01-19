@@ -5,7 +5,9 @@ from ortools.sat.python import cp_model
 
 days = [
         "Monday",
-        #"Tuesday"
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
         ]
 times = [
         "17:30-18:40",
@@ -21,22 +23,63 @@ rooms = [
 
 teachers_lead = [
         "David",
-        "Tom",
+        "Tom S.",
+        "Kuba",
+        "Peta",
+        "Tom K.",
+        "Jarda",
+        "Quique",
+        "Mato",
+        "Martin",
+        "Michal",
+        "Vojta",
+        "Standa",
+        "Kolin",
         ]
 teachers_follow = [
         "Terka",
         "Janca",
+        "Ilca",
+        "Pavli",
+        "Blaza",
+        "Silvia",
+        "Ivca",
+        "Linda",
+        "Maria",
         ]
 teachers = [ "nobody" ] + teachers_lead + teachers_follow
 Teachers = {}
 for (i, t) in enumerate(teachers):
     Teachers[t] = i
 
-courses_solo = [ "Solo Jazz" ]
+courses_open = [
+        "Shag/Balboa Open Training",
+        "Teachers Training",
+        "Blues/Slow Open Training",
+        ]
+courses_solo = [
+        "Solo 1 - Improvisation",
+        "Intensive Training",
+        "Choreo Atelier - Ladies Edition",
+        ]
 courses_regular = [
-        "LH1",
-        "LH5",
-        "Airsteps"
+        "LH 1 - Beginners (1)",
+        "LH 1 - Beginners (2)",
+        "LH 2 - Survival Guide (1)",
+        "LH 2 - Survival Guide (2)",
+        "LH 2 - Party Moves",
+        "LH 3 - Cool Moves & Styling",
+        "LH 3 - Musicality",
+        "LH 4 - Let the Music Be with You",
+        "LH 4 - Lindy Charleston",
+        "LH 2.5 - Swing-out (1)",
+        "LH 2.5 - Swing-out (2)",
+        "LH 5 - Topic-less",
+        "Charleston 2",
+        "Airsteps 2",
+        "Balboa Beginners",
+        "Balboa Intermediate",
+        "Collegiate Shag 1",
         ]
 courses = courses_regular + courses_solo
 Courses = {}
@@ -96,7 +139,7 @@ print()
 
 
 solver = cp_model.CpSolver()
-solver.parameters.max_time_in_seconds = 10.0
+solver.parameters.max_time_in_seconds = 20.0
 status = solver.SearchForAllSolutions(model, cp_model.ObjectiveSolutionPrinter())
 statusname = solver.StatusName(status)
 print(f"Solving finished in {solver.WallTime()} seconds with status {status} - {statusname}")

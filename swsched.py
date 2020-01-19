@@ -141,22 +141,57 @@ for c in range(len(courses)):
         sys.exit(10) # TODO proper fail
 
 # OPTIMIZATION
+
 PENALTY_OVERWORK = 100
+PENALTY_DAYS = 1000
 penalties_overwork = []
+penalties_days = []
 teach_slots = 2*len(courses_regular) + len(courses_solo)
 util_avg = teach_slots // (len(teachers)-2) + 1
 print(f"Utilization plan average: {util_avg}")
 for t in range(2, len(teachers)):
-    teached = model.NewIntVar(0, len(slots), "TT:%i" % t)
-    model.Add(teached == sum(lessons[(s,r,t,c)] for s in range(len(slots)) for r in range(len(rooms)) for c in range(len(courses))))
-    diff = model.NewIntVar(-util_avg, len(slots), "TD:%i" % t)
-    model.Add(diff == teached - util_avg)
+    # number of lessons t teaches
+    teaches = model.NewIntVar(0, len(slots), "TT:%i" % t)
+    model.Add(teaches == sum(lessons[(s,r,t,c)] for s in range(len(slots)) for r in range(len(rooms)) for c in range(len(courses))))
+    # teaching should be split evenly
+    util_diff = model.NewIntVar(-util_avg, len(slots), "Tud:%i" % t)
+    model.Add(util_diff == teaches - util_avg)
     excess = model.NewIntVar(0, len(slots), "TE:%i" % t)
-    model.AddMaxEquality(excess, [diff, 0])
-    excess_sq = model.NewIntVar(0, len(slots)**2, "TE:%i" % t)
+    model.AddMaxEquality(excess, [util_diff, 0])
+    excess_sq = model.NewIntVar(0, len(slots)**2, "TEs:%i" % t)
     model.AddMultiplicationEquality(excess_sq, [excess, excess])
     penalties_overwork.append(excess_sq)
-model.Minimize(sum(penalties_overwork[i] * PENALTY_OVERWORK for i in range(len(penalties_overwork))))
+    # nobody should come to studio more days then necessary
+    tds = []
+    for d in range(len(days)):
+        td = model.NewBoolVar("td:t%id%i" % (t,d))
+        # td == True iff teacher t teaches some coursed on day
+        model.Add(sum(lessons[(s,r,t,c)] for s in range(d*len(times), (d+1)*len(times)) for r in range(len(rooms)) for c in range(len(courses))) >= 1).OnlyEnforceIf(td)
+        model.Add(sum(lessons[(s,r,t,c)] for s in range(d*len(times), (d+1)*len(times)) for r in range(len(rooms)) for c in range(len(courses))) == 0).OnlyEnforceIf(td.Not())
+        tds.append(td)
+    teaches_days = model.NewIntVar(0, len(days), "TD:%i" % t)
+    model.Add(teaches_days == sum(tds))
+    teaches_minus_1 = model.NewIntVar(0, len(days), "Tm1:%i" % t)
+    teaches_some = model.NewBoolVar("Ts:%i" % t)
+    model.Add(teaches >= 1).OnlyEnforceIf(teaches_some)
+    model.Add(teaches == 0).OnlyEnforceIf(teaches_some.Not())
+    model.Add(teaches_minus_1 == teaches - 1).OnlyEnforceIf(teaches_some)
+    model.Add(teaches_minus_1 == 0).OnlyEnforceIf(teaches_some.Not())
+    should_teach_days = model.NewIntVar(0, len(days), "TDs:%i" % t)
+    model.AddDivisionEquality(should_teach_days, teaches_minus_1, len(times)) # -1 to compensate rounding down
+    days_extra = model.NewIntVar(0, len(days), "Tdd:%i" % t)
+    model.Add(days_extra == teaches_days - should_teach_days - 1).OnlyEnforceIf(teaches_some) # -1 to compensate rounding down
+    model.Add(days_extra == 0).OnlyEnforceIf(teaches_some.Not())
+    days_extra_sq = model.NewIntVar(0, len(days)**2, "Tdds:%i" % t)
+    model.AddMultiplicationEquality(days_extra_sq, [days_extra, days_extra])
+    penalties_days.append(days_extra_sq)
+
+
+model.Minimize(
+        sum(penalties_overwork[i] * PENALTY_OVERWORK for i in range(len(penalties_overwork)))
+        + sum(penalties_days[i] * PENALTY_DAYS for i in range(len(penalties_days)))
+        )
+
 
 print(model.ModelStats())
 print()

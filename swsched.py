@@ -153,7 +153,9 @@ for t in range(2, len(teachers)):
     model.Add(diff == teached - util_avg)
     excess = model.NewIntVar(0, len(slots), "TE:%i" % t)
     model.AddMaxEquality(excess, [diff, 0])
-    penalties_overwork.append(excess)
+    excess_sq = model.NewIntVar(0, len(slots)**2, "TE:%i" % t)
+    model.AddMultiplicationEquality(excess_sq, [excess, excess])
+    penalties_overwork.append(excess_sq)
 model.Minimize(sum(penalties_overwork[i] * PENALTY_OVERWORK for i in range(len(penalties_overwork))))
 
 print(model.ModelStats())

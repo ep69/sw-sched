@@ -47,7 +47,7 @@ teachers_follow = [
         "Linda",
         "Maria",
         ]
-teachers = [ "nobody" ] + teachers_lead + teachers_follow
+teachers = [ "SOLO", "OPEN" ] + teachers_lead + teachers_follow
 Teachers = {}
 for (i, t) in enumerate(teachers):
     Teachers[t] = i
@@ -81,7 +81,7 @@ courses_regular = [
         "Balboa Intermediate",
         "Collegiate Shag 1",
         ]
-courses = courses_regular + courses_solo
+courses = courses_regular + courses_solo + courses_open
 Courses = {}
 for (i, c) in enumerate(courses):
     Courses[c] = i
@@ -98,8 +98,8 @@ for s in range(len(slots)):
             for c in range(len(courses)):
                 lessons[(s,r,t,c)] = model.NewBoolVar("s%ir%it%ic%i" % (s,r,t,c))
 
-# one teacher can teach just one course at any given timeslot (except for 'nobody')
-for t in range(1, len(teachers)):
+# one teacher can teach just one course at any given timeslot (except for SOLO and OPEN)
+for t in range(2, len(teachers)):
     for s in range(len(slots)):
         model.Add(sum(lessons[(s,r,t,c)] for r in range(len(rooms)) for c in range(len(courses))) <= 1)
 
@@ -126,20 +126,29 @@ for c in range(len(courses)):
         model.Add(sum(lessons[(s,r,Teachers[T],c)] for s in range(len(slots)) for r in range(len(rooms)) for T in teachers_lead) == 1)
         # one follow must teach
         model.Add(sum(lessons[(s,r,Teachers[T],c)] for s in range(len(slots)) for r in range(len(rooms)) for T in teachers_follow) == 1)
-        # 'nobody' must not teach
+        # SOLO and OPEN must not teach
         model.Add(sum(lessons[(s,r,0,c)] for s in range(len(slots)) for r in range(len(rooms))) == 0)
-    else: # solo course
+        model.Add(sum(lessons[(s,r,1,c)] for s in range(len(slots)) for r in range(len(rooms))) == 0)
+    elif courses[c] in courses_solo: # solo course
         # one real teacher must teach
-        model.Add(sum(lessons[(s,r,t,c)] for s in range(len(slots)) for r in range(len(rooms)) for t in range(1, len(teachers))) == 1)
-        # 'nobody' must teach
+        model.Add(sum(lessons[(s,r,t,c)] for s in range(len(slots)) for r in range(len(rooms)) for t in range(2, len(teachers))) == 1)
+        # SOLO must teach, OPEN must NOT teach
         model.Add(sum(lessons[(s,r,0,c)] for s in range(len(slots)) for r in range(len(rooms))) == 1)
+        model.Add(sum(lessons[(s,r,1,c)] for s in range(len(slots)) for r in range(len(rooms))) == 0)
+    elif courses[c] in courses_open:
+        # SOLO and OPEN must teach
+        model.Add(sum(lessons[(s,r,0,c)] for s in range(len(slots)) for r in range(len(rooms))) == 1)
+        model.Add(sum(lessons[(s,r,1,c)] for s in range(len(slots)) for r in range(len(rooms))) == 1)
+    else:
+        sys.exit(10) # TODO proper fail
+
 
 print(model.ModelStats())
 print()
 
 
 solver = cp_model.CpSolver()
-solver.parameters.max_time_in_seconds = 20.0
+#solver.parameters.max_time_in_seconds = 20.0
 status = solver.SearchForAllSolutions(model, cp_model.ObjectiveSolutionPrinter())
 statusname = solver.StatusName(status)
 print(f"Solving finished in {solver.WallTime()} seconds with status {status} - {statusname}")
@@ -151,7 +160,8 @@ print()
 print("SOLUTION:")
 for s in range(len(slots)):
     for r in range(len(rooms)):
-        for t in range(1, len(teachers)): # do not print nobody's courses
+        for t in range(1, len(teachers)): # do not print SOLO's courses
+        #for t in range(len(teachers)):
             for c in range(len(courses)):
                 if solver.Value(lessons[(s,r,t,c)]):
                     print(f"{slots[s]} in {rooms[r]} room, {teachers[t]} teaches {courses[c]}")

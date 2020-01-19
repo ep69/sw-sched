@@ -1,10 +1,11 @@
-#!/usr/bin/env pytho3
+#!/usr/bin/env python3
 
+import sys
 from ortools.sat.python import cp_model
 
 days = [
         "Monday",
-        "Tuesday"
+        #"Tuesday"
         ]
 times = [
         "17:30-18:40",
@@ -24,7 +25,7 @@ teachers_lead = [
         ]
 teachers_follow = [
         "Terka",
-        "Janca"
+        "Janca",
         ]
 teachers = [ "nobody" ] + teachers_lead + teachers_follow
 Teachers = {}
@@ -90,14 +91,25 @@ for c in range(len(courses)):
         # 'nobody' must teach
         model.Add(sum(lessons[(s,r,0,c)] for s in range(len(slots)) for r in range(len(rooms))) == 1)
 
+print(model.ModelStats())
+print()
+
 
 solver = cp_model.CpSolver()
-solver.Solve(model)
+solver.parameters.max_time_in_seconds = 10.0
+status = solver.SearchForAllSolutions(model, cp_model.ObjectiveSolutionPrinter())
+statusname = solver.StatusName(status)
+print(f"Solving finished in {solver.WallTime()} seconds with status {status} - {statusname}")
+if statusname not in ["FEASIBLE", "OPTIMAL"]:
+    print("Solution NOT found")
+    sys.exit(1)
 
+print()
+print("SOLUTION:")
 for s in range(len(slots)):
     for r in range(len(rooms)):
         for t in range(1, len(teachers)): # do not print nobody's courses
             for c in range(len(courses)):
                 if solver.Value(lessons[(s,r,t,c)]):
-                    print("%s in %s room, %s teaches %s" % (slots[s],rooms[r],teachers[t],courses[c]))
+                    print(f"{slots[s]} in {rooms[r]} room, {teachers[t]} teaches {courses[c]}")
 

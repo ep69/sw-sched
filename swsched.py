@@ -23,6 +23,7 @@ teachers_lead = [
         "Vojta",
         "Standa",
         "Kolin",
+        "Kepo", #
         ]
 teachers_follow = [
         "Terka",
@@ -34,6 +35,7 @@ teachers_follow = [
         "Ivca",
         "Linda",
         "Maria",
+        "Poli", #
 	]
 teachers = teachers_lead + teachers_follow
 Teachers = {}
@@ -75,6 +77,15 @@ for (i, c) in enumerate(courses):
     Courses[c] = i
 
 # SPECIFIC HARD CONSTRAINTS
+
+
+# course C could be taught only by Ts
+teachers_shag = ["Terka", "Linda", "Kepo", "Standa"]
+teachers_balboa = ["Peta", "Jarda", "Poli", "Pavli", "Ilca"]
+ct_possible = {}
+ct_possible["Collegiate Shag 1"] = teachers_shag
+ct_possible["Balboa Beginners"] = teachers_balboa
+ct_possible["Balboa Intermediate"] = teachers_balboa
 
 # teacher T must teach courses Cs
 tc_strict = {}
@@ -162,6 +173,17 @@ for (T, Cs) in tc_strict.items():
         c = Courses[C]
         strict_assignments.append(tc[(t,c)])
 model.AddBoolAnd(strict_assignments)
+
+ts_all = set(range(len(teachers)))
+for (C, Ts) in ct_possible.items():
+    c = Courses[C]
+    ts_can = []
+    for T in Ts:
+        t = Teachers[T]
+        ts_can.append(t)
+    ts_not = ts_all - set(ts_can)
+    # no other teacher can teach C
+    model.Add(sum(tc[(t,c)] for t in ts_not) == 0)
 
 # OPTIMIZATION
 

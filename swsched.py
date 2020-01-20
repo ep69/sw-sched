@@ -199,7 +199,7 @@ for (C, Ts) in ct_possible.items():
 
 penalties = [] # penalties to minimize
 PENALTY_OVERWORK = 100 # squared
-PENALTY_DAYS = 1000
+PENALTY_DAYS = 1000 # squared
 PENALTY_SPLIT = 500
 penalties_overwork = []
 penalties_days = []
@@ -209,7 +209,8 @@ if PENALTY_OVERWORK > 0:
     # teaching should be split evenly
     teach_slots = 2*len(courses_regular) + len(courses_solo)
     # TODO: some people might explicitly want more
-    util_avg = teach_slots // (len(teachers)) + 1
+    # disregarding people with t_max set (roughly - subtracting also number of courses from "defaul pool")
+    util_avg = (teach_slots - sum(t_max.values())) // ((len(teachers)) - len(t_max)) + 1
     print(f"Maximum desired utilization: {util_avg}")
     for t in range(len(teachers)):
         util_diff = model.NewIntVar(-util_avg, len(slots), "")
@@ -225,24 +226,12 @@ if PENALTY_DAYS > 0:
     for t in range(len(teachers)):
         # nobody should come to studio more days then necessary
         tds = []
-        tsplits = []
         for d in range(len(days)):
             td = model.NewBoolVar("td:t%id%i" % (t,d))
             # td == True iff teacher t teaches some courses on day d
             model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) >= 1).OnlyEnforceIf(td)
             model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) == 0).OnlyEnforceIf(td.Not())
             tds.append(td)
-            # tsplit == True iff teacher t teaches just the first and the last course in day d
-            tsubsplits = []
-            for i in range(len(times)):
-                tsubsplit = model.NewBoolVar("tsubsplit:t%id%ii%i" % (t,d,i))
-                model.Add(sum(ts[(t,s)] for s in [d*len(times)+i]) == 1).OnlyEnforceIf(tsubsplit)
-                model.Add(sum(ts[(t,s)] for s in [d*len(times)+i]) == 0).OnlyEnforceIf(tsubsplit.Not())
-                tsubsplits.append(tsubsplit)
-            tsplit = model.NewBoolVar("tsplit:t%id%i" % (t,d))
-            model.AddBoolAnd([tsubsplits[0], tsubsplits[1].Not(), tsubsplits[2]]).OnlyEnforceIf(tsplit)
-            model.AddBoolOr([tsubsplits[0].Not(), tsubsplits[1], tsubsplits[2].Not()]).OnlyEnforceIf(tsplit.Not())
-            tsplits.append(tsplit)
         teaches_days = model.NewIntVar(0, len(days), "TD:%i" % t)
         model.Add(teaches_days == sum(tds))
         teaches_minus_1 = model.NewIntVar(0, len(days), "Tm1:%i" % t)
@@ -264,6 +253,19 @@ if PENALTY_DAYS > 0:
 if PENALTY_SPLIT > 0:
     for t in range(len(teachers)):
         days_split = model.NewIntVar(0, len(days), "TDsplit:%i" % t)
+        tsplits = []
+        for d in range(len(days)):
+            # tsplit == True iff teacher t teaches just the first and the last course in day d
+            tsubsplits = []
+            for i in range(len(times)):
+                tsubsplit = model.NewBoolVar("tsubsplit:t%id%ii%i" % (t,d,i))
+                model.Add(sum(ts[(t,s)] for s in [d*len(times)+i]) == 1).OnlyEnforceIf(tsubsplit)
+                model.Add(sum(ts[(t,s)] for s in [d*len(times)+i]) == 0).OnlyEnforceIf(tsubsplit.Not())
+                tsubsplits.append(tsubsplit)
+            tsplit = model.NewBoolVar("tsplit:t%id%i" % (t,d))
+            model.AddBoolAnd([tsubsplits[0], tsubsplits[1].Not(), tsubsplits[2]]).OnlyEnforceIf(tsplit)
+            model.AddBoolOr([tsubsplits[0].Not(), tsubsplits[1], tsubsplits[2].Not()]).OnlyEnforceIf(tsplit.Not())
+            tsplits.append(tsplit)
         model.Add(days_split == sum(tsplits))
         penalties_split.append(days_split)
     penalties.append(sum(penalties_split[i] * PENALTY_SPLIT for i in range(len(penalties_split))))

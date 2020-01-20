@@ -74,6 +74,12 @@ Courses = {}
 for (i, c) in enumerate(courses):
     Courses[c] = i
 
+# SPECIFIC HARD CONSTRAINTS
+
+# teacher T must teach courses Cs
+tc_strict = {}
+tc_strict["Standa"] = ["Collegiate Shag 1"]
+
 model = cp_model.CpModel()
 
 # VARIABLES
@@ -149,6 +155,14 @@ for c in range(len(courses)):
     else:
         sys.exit(10) # TODO
 
+strict_assignments = []
+for (T, Cs) in tc_strict.items():
+    t = Teachers[T]
+    for C in Cs:
+        c = Courses[C]
+        strict_assignments.append(tc[(t,c)])
+model.AddBoolAnd(strict_assignments)
+
 # OPTIMIZATION
 
 penalties = [] # penalties to minimize
@@ -158,16 +172,17 @@ PENALTY_SPLIT = 500
 penalties_overwork = []
 penalties_days = []
 penalties_split = []
-teach_slots = 2*len(courses_regular) + len(courses_solo)
-util_avg = teach_slots // (len(teachers)) + 1
-print(f"Utilization plan average: {util_avg}")
 
 if PENALTY_OVERWORK > 0:
+    # teaching should be split evenly
     for t in range(len(teachers)):
-        # teaching should be split evenly
-        util_diff = model.NewIntVar(-util_avg, len(slots), "Tud:%i" % t)
+        teach_slots = 2*len(courses_regular) + len(courses_solo)
+        # TODO: some people might explicitly want more
+        util_avg = teach_slots // (len(teachers)) + 1
+        print(f"Maximum desired utilization: {util_avg}")
+        util_diff = model.NewIntVar(-util_avg, len(slots), "")
         model.Add(util_diff == teach_num[t] - util_avg)
-        excess = model.NewIntVar(0, len(slots), "Texcess:%i" % t)
+        excess = model.NewIntVar(0, len(slots), "")
         model.AddMaxEquality(excess, [util_diff, 0])
         excess_sq = model.NewIntVar(0, len(slots)**2, "Texcesssq:%i" % t)
         model.AddMultiplicationEquality(excess_sq, [excess, excess])
@@ -242,7 +257,7 @@ for s in range(len(slots)):
             if solver.Value(src[(s,r,c)]):
                 print("%s in %s room: %s" % (slots[s],rooms[r],courses[c]))
 
-for t in range(len(teachers)):
-    for c in range(len(courses)):
+for c in range(len(courses)):
+    for t in range(len(teachers)):
         if solver.Value(tc[(t,c)]):
                 print("%s taught by %s" % (courses[c],teachers[t]))

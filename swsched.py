@@ -78,8 +78,12 @@ for (i, c) in enumerate(courses):
 
 # SPECIFIC HARD CONSTRAINTS
 
+# teacher T can teach maximum N courses
+t_max = {}
+t_max["Kepo"] = 0
+t_max["Poli"] = 0
 
-# course C could be taught only by Ts
+# course C can be taught only by Ts
 teachers_shag = ["Terka", "Linda", "Kepo", "Standa"]
 teachers_balboa = ["Peta", "Jarda", "Poli", "Pavli", "Ilca"]
 ct_possible = {}
@@ -166,6 +170,12 @@ for c in range(len(courses)):
     else:
         sys.exit(10) # TODO
 
+# SPECIFIC CONSTRAINTS
+
+for (T, n) in t_max.items():
+    t = Teachers[T]
+    model.Add(sum(tc[(t,c)] for c in range(len(courses))) <= n)
+
 strict_assignments = []
 for (T, Cs) in tc_strict.items():
     t = Teachers[T]
@@ -197,11 +207,11 @@ penalties_split = []
 
 if PENALTY_OVERWORK > 0:
     # teaching should be split evenly
+    teach_slots = 2*len(courses_regular) + len(courses_solo)
+    # TODO: some people might explicitly want more
+    util_avg = teach_slots // (len(teachers)) + 1
+    print(f"Maximum desired utilization: {util_avg}")
     for t in range(len(teachers)):
-        teach_slots = 2*len(courses_regular) + len(courses_solo)
-        # TODO: some people might explicitly want more
-        util_avg = teach_slots // (len(teachers)) + 1
-        print(f"Maximum desired utilization: {util_avg}")
         util_diff = model.NewIntVar(-util_avg, len(slots), "")
         model.Add(util_diff == teach_num[t] - util_avg)
         excess = model.NewIntVar(0, len(slots), "")

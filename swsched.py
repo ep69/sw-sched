@@ -11,10 +11,10 @@ rooms = ["big", "small"]
 
 teachers_lead = [
         "David",
-        "Tom S.",
+        "Tom-S.",
         "Kuba",
         "Peta",
-        "Tom K.",
+        "Tom-K.",
         "Jarda",
         "Quique",
         "Mato",
@@ -86,14 +86,23 @@ t_max["Poli"] = 0
 # course C can be taught only by Ts
 teachers_shag = ["Terka", "Linda", "Kepo", "Standa"]
 teachers_balboa = ["Peta", "Jarda", "Poli", "Pavli", "Ilca"]
+teachers_airsteps = ["Tom-S.", "Janca"]
 ct_possible = {}
 ct_possible["Collegiate Shag 1"] = teachers_shag
 ct_possible["Balboa Beginners"] = teachers_balboa
 ct_possible["Balboa Intermediate"] = teachers_balboa
+ct_possible["Airsteps 2"] = teachers_airsteps
 
 # teacher T must teach courses Cs
 tc_strict = {}
 tc_strict["Standa"] = ["Collegiate Shag 1"]
+
+# course C1 should happen right before or right after C2
+cc_follow = [
+        ("Collegiate Shag 1", "Airsteps 2"),
+        ("Balboa Beginners", "Shag/Balboa Open Training"),
+        ("Balboa Intermediate", "Shag/Balboa Open Training"),
+        ]
 
 model = cp_model.CpModel()
 
@@ -121,17 +130,23 @@ ts = {}
 for s in range(len(slots)):
     for t in range(len(teachers)):
         ts[(t,s)] = model.NewBoolVar("TS:t%is%i" % (t,s))
+cs = []
+# course C takes place in slot S
+for c in range(len(courses)):
+    cs.append(model.NewIntVar(0, len(slots), ""))
 
 # teacher T teaches in slot S course C iff course C takes place at slot S and is taught by teacher T
 # inferring CTS info
 for s in range(len(slots)):
     for c in range(len(courses)):
-        cs = model.NewBoolVar("") # course C is at slot S
-        model.Add(sum(src[(s,r,c)] for r in range(len(rooms))) == 1).OnlyEnforceIf(cs)
-        model.Add(sum(src[(s,r,c)] for r in range(len(rooms))) == 0).OnlyEnforceIf(cs.Not())
+        hit = model.NewBoolVar("") # course C is at slot S
+        model.Add(sum(src[(s,r,c)] for r in range(len(rooms))) == 1).OnlyEnforceIf(hit)
+        model.Add(sum(src[(s,r,c)] for r in range(len(rooms))) == 0).OnlyEnforceIf(hit.Not())
+        model.Add(cs[c] == s).OnlyEnforceIf(hit)
+        model.Add(cs[c] != s).OnlyEnforceIf(hit.Not())
         for t in range(len(teachers)):
-            model.AddBoolAnd([cs, tc[(t,c)]]).OnlyEnforceIf(tsc[(t,s,c)])
-            model.AddBoolOr([cs.Not(), tc[(t,c)].Not()]).OnlyEnforceIf(tsc[(t,s,c)].Not())
+            model.AddBoolAnd([hit, tc[(t,c)]]).OnlyEnforceIf(tsc[(t,s,c)])
+            model.AddBoolOr([hit.Not(), tc[(t,c)].Not()]).OnlyEnforceIf(tsc[(t,s,c)].Not())
 # inferring TS info
 for s in range(len(slots)):
     for t in range(len(teachers)):
@@ -201,9 +216,11 @@ penalties = [] # penalties to minimize
 PENALTY_OVERWORK = 100 # squared
 PENALTY_DAYS = 1000 # squared
 PENALTY_SPLIT = 500
+PENALTY_FOLLOW = 300
 penalties_overwork = []
 penalties_days = []
 penalties_split = []
+penalties_follow = []
 
 if PENALTY_OVERWORK > 0:
     # teaching should be split evenly
@@ -269,6 +286,30 @@ if PENALTY_SPLIT > 0:
         model.Add(days_split == sum(tsplits))
         penalties_split.append(days_split)
     penalties.append(sum(penalties_split[i] * PENALTY_SPLIT for i in range(len(penalties_split))))
+
+if PENALTY_FOLLOW > 0:
+    for C1, C2 in cc_follow:
+        c1 = Courses[C1]
+        c2 = Courses[C2]
+        d1 = model.NewIntVar(0, len(days), "")
+        d2 = model.NewIntVar(0, len(days), "")
+        model.AddDivisionEquality(d1, cs[c1], len(times))
+        model.AddDivisionEquality(d2, cs[c2], len(times))
+        sameday = model.NewBoolVar("")
+        model.Add(d1 == d2).OnlyEnforceIf(sameday)
+        model.Add(d1 != d2).OnlyEnforceIf(sameday.Not())
+        slot_diff = model.NewIntVar(-len(slots), len(slots), "")
+        abs_slot_diff = model.NewIntVar(0, len(slots), "")
+        model.Add(slot_diff == cs[c1] - cs[c2])
+        model.AddAbsEquality(abs_slot_diff, slot_diff)
+        asd1 = model.NewBoolVar("") # abs_slot_diff == 1
+        model.Add(abs_slot_diff == 1).OnlyEnforceIf(asd1)
+        model.Add(abs_slot_diff != 1).OnlyEnforceIf(asd1.Not())
+        follows = model.NewBoolVar("") # follows
+        model.AddBoolAnd([sameday, asd1]).OnlyEnforceIf(follows)
+        model.AddBoolOr([sameday.Not(), asd1.Not()]).OnlyEnforceIf(follows.Not())
+        penalties_follow.append(follows.Not())
+    penalties.append(sum(penalties_follow[i] * PENALTY_FOLLOW for i in range(len(penalties_follow))))
 
 model.Minimize(sum(penalties))
 

@@ -326,13 +326,24 @@ if statusname not in ["FEASIBLE", "OPTIMAL"]:
     print("Solution NOT found")
     sys.exit(1)
 
+print()
+print("SOLUTION:")
 for s in range(len(slots)):
     for r in range(len(rooms)):
         for c in range(len(courses)):
             if solver.Value(src[(s,r,c)]):
-                print("%s in %s room: %s" % (slots[s],rooms[r],courses[c]))
-
-for c in range(len(courses)):
-    for t in range(len(teachers)):
-        if solver.Value(tc[(t,c)]):
-                print("%s taught by %s" % (courses[c],teachers[t]))
+                Ts = []
+                if courses[c] in courses_open:
+                    Ts.append("OPEN")
+                elif courses[c] in courses_solo:
+                    for t in range(len(teachers)):
+                        if solver.Value(tc[(t,c)]):
+                            Ts.append(teachers[t])
+                            break
+                elif courses[c] in courses_regular:
+                    for t in range(len(teachers)):
+                        if solver.Value(tc[(t,c)]):
+                            Ts.append(teachers[t])
+                if len(Ts) == 2 and Ts[0] in teachers_follow:
+                    Ts[0], Ts[1] = Ts[1], Ts[2]
+                print(f"{slots[s]} in {rooms[r]} room: {courses[c]} / {'+'.join(Ts)}")

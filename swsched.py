@@ -191,13 +191,14 @@ for (T, n) in t_max.items():
     t = Teachers[T]
     model.Add(sum(tc[(t,c)] for c in range(len(courses))) <= n)
 
-strict_assignments = []
-for (T, Cs) in tc_strict.items():
-    t = Teachers[T]
-    for C in Cs:
-        c = Courses[C]
-        strict_assignments.append(tc[(t,c)])
-model.AddBoolAnd(strict_assignments)
+if tc_strict:
+    strict_assignments = []
+    for (T, Cs) in tc_strict.items():
+        t = Teachers[T]
+        for C in Cs:
+            c = Courses[C]
+            strict_assignments.append(tc[(t,c)])
+    model.AddBoolAnd(strict_assignments)
 
 ts_all = set(range(len(teachers)))
 for (C, Ts) in ct_possible.items():

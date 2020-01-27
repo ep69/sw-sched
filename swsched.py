@@ -97,6 +97,11 @@ ct_possible["Airsteps 2"] = teachers_airsteps
 tc_strict = {}
 tc_strict["Standa"] = ["Collegiate Shag 1"]
 
+# teacher T1 must not teach a course with teacher T2
+tt_not_together = [
+        ("Michal", "Ilca"),
+        ]
+
 # course C1 must happen on different day than C2
 cc_different_day = [
         ("LH 1 - Beginners (1)", "LH 1 - Beginners (2)"),
@@ -215,6 +220,11 @@ for (C, Ts) in ct_possible.items():
     ts_not = ts_all - set(ts_can)
     # no other teacher can teach C
     model.Add(sum(tc[(t,c)] for t in ts_not) == 0)
+
+for T1, T2 in tt_not_together:
+    for c in range(len(courses)):
+        model.Add(sum(tc[(t,c)] for t in [Teachers[T1], Teachers[T2]]) < 2)
+
 
 for C1, C2 in cc_different_day:
     slot_diff = model.NewIntVar(-len(slots), len(slots), "")

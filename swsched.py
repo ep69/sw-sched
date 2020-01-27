@@ -140,6 +140,11 @@ ts = {}
 for s in range(len(slots)):
     for t in range(len(teachers)):
         ts[(t,s)] = model.NewBoolVar("TS:t%is%i" % (t,s))
+# teacher T teaches on day D
+td = {}
+for d in range(len(days)):
+    for t in range(len(teachers)):
+        td[(t,d)] = model.NewBoolVar("TD:t%is%i" % (t,d))
 cs = []
 # course C takes place in slot S
 for c in range(len(courses)):
@@ -162,6 +167,10 @@ for s in range(len(slots)):
     for t in range(len(teachers)):
         model.Add(sum(tsc[(t,s,c)] for c in range(len(courses))) == 1).OnlyEnforceIf(ts[(t,s)])
         model.Add(sum(tsc[(t,s,c)] for c in range(len(courses))) == 0).OnlyEnforceIf(ts[(t,s)].Not())
+for d in range(len(days)):
+    for t in range(len(teachers)):
+        model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) >= 1).OnlyEnforceIf(td[(t,d)])
+        model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) == 0).OnlyEnforceIf(td[(t,d)].Not())
 
 # number of lessons teacher T teaches
 teach_num = {}
@@ -265,15 +274,8 @@ if PENALTY_OVERWORK > 0:
 if PENALTY_DAYS > 0:
     for t in range(len(teachers)):
         # nobody should come to studio more days then necessary
-        tds = []
-        for d in range(len(days)):
-            td = model.NewBoolVar("td:t%id%i" % (t,d))
-            # td == True iff teacher t teaches some courses on day d
-            model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) >= 1).OnlyEnforceIf(td)
-            model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) == 0).OnlyEnforceIf(td.Not())
-            tds.append(td)
         teaches_days = model.NewIntVar(0, len(days), "TD:%i" % t)
-        model.Add(teaches_days == sum(tds))
+        model.Add(teaches_days == sum(td[(t,d)] for d in range(len(days))))
         teaches_minus_1 = model.NewIntVar(0, len(days), "Tm1:%i" % t)
         teaches_some = model.NewBoolVar("Ts:%i" % t)
         model.Add(teach_num[t] >= 1).OnlyEnforceIf(teaches_some)

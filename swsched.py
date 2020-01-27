@@ -97,11 +97,16 @@ ct_possible["Airsteps 2"] = teachers_airsteps
 tc_strict = {}
 tc_strict["Standa"] = ["Collegiate Shag 1"]
 
+# course C1 must happen on different day than C2
+cc_different_day = [
+        ("LH 1 - Beginners (1)", "LH 1 - Beginners (2)"),
+        ]
+
 # course C1 should happen right before or right after C2
 cc_follow = [
         ("Collegiate Shag 1", "Airsteps 2"),
-        ("Balboa Beginners", "Shag/Balboa Open Training"),
-        ("Balboa Intermediate", "Shag/Balboa Open Training"),
+        #("Balboa Beginners", "Shag/Balboa Open Training"),
+        #("Balboa Intermediate", "Shag/Balboa Open Training"),
         ]
 
 model = cp_model.CpModel()
@@ -210,6 +215,13 @@ for (C, Ts) in ct_possible.items():
     ts_not = ts_all - set(ts_can)
     # no other teacher can teach C
     model.Add(sum(tc[(t,c)] for t in ts_not) == 0)
+
+for C1, C2 in cc_different_day:
+    slot_diff = model.NewIntVar(-len(slots), len(slots), "")
+    model.Add(slot_diff == cs[Courses[C1]] - cs[Courses[C2]])
+    abs_slot_diff = model.NewIntVar(0, len(slots), "")
+    model.AddAbsEquality(abs_slot_diff, slot_diff)
+    model.Add(abs_slot_diff >= len(times))
 
 # OPTIMIZATION
 

@@ -4,6 +4,9 @@ import sys
 from ortools.sat.python import cp_model
 
 days = ["Monday", "Tuesday", "Wednesday", "Thursday"]
+Days = {}
+for i, D in enumerate(days):
+    Days[D] = i
 times = ["17:30-18:40", "18:45-19:55", "20:00-21:10"]
 slots = [ d + " " + t for d in days for t in times ]
 
@@ -101,6 +104,11 @@ tc_strict["Standa"] = ["Collegiate Shag 1"]
 tt_not_together = [
         ("Michal", "Ilca"),
         ]
+
+# teacher T cannot (0), can (1 - default), or would like to (2) teach on day D
+td_pref = {}
+td_pref[("Tom-S.", "Thursday")] = 0 # acroyoga
+td_pref[("Tom-S.", "Monday")] = 2
 
 # course C1 must happen on different day than C2
 cc_different_day = [
@@ -234,6 +242,10 @@ for T1, T2 in tt_not_together:
     for c in range(len(courses)):
         model.Add(sum(tc[(t,c)] for t in [Teachers[T1], Teachers[T2]]) < 2)
 
+for (T,D), n in td_pref.items():
+    if n == 0: # T cannot teach on day D
+        print(f"{T} - {D} - {n}")
+        model.Add(td[(Teachers[T], Days[D])] == 0)
 
 for C1, C2 in cc_different_day:
     slot_diff = model.NewIntVar(-len(slots), len(slots), "")
@@ -249,10 +261,12 @@ PENALTY_OVERWORK = 100 # squared
 PENALTY_DAYS = 1000 # squared
 PENALTY_SPLIT = 500
 PENALTY_FOLLOW = 300
+PENALTY_DAYPREF = 1000
 penalties_overwork = []
 penalties_days = []
 penalties_split = []
 penalties_follow = []
+penalties_daypref = []
 
 if PENALTY_OVERWORK > 0:
     # teaching should be split evenly
@@ -335,6 +349,22 @@ if PENALTY_FOLLOW > 0:
         model.AddBoolOr([sameday.Not(), asd1.Not()]).OnlyEnforceIf(follows.Not())
         penalties_follow.append(follows.Not())
     penalties.append(sum(penalties_follow[i] * PENALTY_FOLLOW for i in range(len(penalties_follow))))
+
+if PENALTY_DAYPREF > 0:
+    for T in teachers:
+        t = Teachers[T]
+        prefs = []
+        for D in days:
+            prefs.append(td_pref.get((T,D), 1))
+        if max(prefs) > 1: # teacher T prefers some days over others
+            days_not_pref = [d for d in range(len(prefs)) if prefs[d] == 1] # not preferred days
+            penalties_daypref.append(sum(td[(t,d)] for d in days_not_pref))
+        penalties.append(sum(penalties_daypref) * PENALTY_DAYPREF)
+
+    for (T,D), n in td_pref.items():
+        if n == 0: # T cannot teach on day D
+            print(f"{T} - {D} - {n}")
+            model.Add(td[(Teachers[T], Days[D])] == 0)
 
 model.Minimize(sum(penalties))
 

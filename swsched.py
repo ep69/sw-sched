@@ -11,6 +11,9 @@ times = ["17:30-18:40", "18:45-19:55", "20:00-21:10"]
 slots = [ d + " " + t for d in days for t in times ]
 
 rooms = ["big", "small"]
+Rooms = {}
+for i, R in enumerate(rooms):
+    Rooms[R] = i
 
 teachers_lead = [
         "David",
@@ -253,6 +256,12 @@ for C1, C2 in cc_different_day:
     abs_slot_diff = model.NewIntVar(0, len(slots), "")
     model.AddAbsEquality(abs_slot_diff, slot_diff)
     model.Add(abs_slot_diff >= len(times))
+
+# course has to take place at specific slot and room
+model.Add(src[(0,Rooms["big"],Courses["Airsteps 2"])] == 1)
+
+# course has to take place at specific slot
+model.Add(sum(src[(1,r,Courses["Collegiate Shag 1"])] for r in range(len(rooms))) == 1)
 
 # OPTIMIZATION
 

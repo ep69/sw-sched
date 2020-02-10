@@ -108,10 +108,14 @@ tt_not_together = [
         ("Michal", "Ilca"),
         ]
 
-# teacher T cannot (0), can (1 - default), or would like to (2) teach on day D
+# teacher T availability at day D:
+#   0 cannot
+#   1 barely
+#   2 fine (default)
+#   3 great
 td_pref = {}
 td_pref[("Tom-S.", "Thursday")] = 0 # acroyoga
-td_pref[("Tom-S.", "Monday")] = 2
+td_pref[("Tom-S.", "Monday")] = 3
 
 # course C1 must happen on different day than C2
 cc_different_day = [
@@ -155,7 +159,7 @@ for s in range(len(slots)):
 td = {}
 for d in range(len(days)):
     for t in range(len(teachers)):
-        td[(t,d)] = model.NewBoolVar("TD:t%is%i" % (t,d))
+        td[(t,d)] = model.NewBoolVar("TD:t%id%i" % (t,d))
 cs = []
 # course C takes place in slot S
 for c in range(len(courses)):
@@ -247,7 +251,6 @@ for T1, T2 in tt_not_together:
 
 for (T,D), n in td_pref.items():
     if n == 0: # T cannot teach on day D
-        print(f"{T} - {D} - {n}")
         model.Add(td[(Teachers[T], Days[D])] == 0)
 
 for C1, C2 in cc_different_day:
@@ -257,11 +260,17 @@ for C1, C2 in cc_different_day:
     model.AddAbsEquality(abs_slot_diff, slot_diff)
     model.Add(abs_slot_diff >= len(times))
 
+# Rather specific constraints:
+
+# course has to take place at specific room
+model.Add(sum(src[(s,Rooms["big"],Courses["Airsteps 2"])] for s in range(len(slots))) == 1)
+
 # course has to take place at specific slot and room
-model.Add(src[(0,Rooms["big"],Courses["Airsteps 2"])] == 1)
+#model.Add(src[(0,Rooms["big"],Courses["Airsteps 2"])] == 1)
 
 # course has to take place at specific slot
-model.Add(sum(src[(1,r,Courses["Collegiate Shag 1"])] for r in range(len(rooms))) == 1)
+#model.Add(sum(src[(1,r,Courses["Collegiate Shag 1"])] for r in range(len(rooms))) == 1)
+
 
 # OPTIMIZATION
 
@@ -270,7 +279,8 @@ PENALTY_OVERWORK = 100 # squared
 PENALTY_DAYS = 1000 # squared
 PENALTY_SPLIT = 500
 PENALTY_FOLLOW = 300
-PENALTY_DAYPREF = 1000
+PENALTY_DAYPREF_SLIGHT = 50
+PENALTY_DAYPREF_BAD = 1000
 penalties_overwork = []
 penalties_days = []
 penalties_split = []
@@ -359,21 +369,24 @@ if PENALTY_FOLLOW > 0:
         penalties_follow.append(follows.Not())
     penalties.append(sum(penalties_follow[i] * PENALTY_FOLLOW for i in range(len(penalties_follow))))
 
-if PENALTY_DAYPREF > 0:
+if PENALTY_DAYPREF_SLIGHT > 0 or PENALTY_DAYPREF_BAD > 0:
     for T in teachers:
         t = Teachers[T]
         prefs = []
         for D in days:
-            prefs.append(td_pref.get((T,D), 1))
-        if max(prefs) > 1: # teacher T prefers some days over others
-            days_not_pref = [d for d in range(len(prefs)) if prefs[d] == 1] # not preferred days
-            penalties_daypref.append(sum(td[(t,d)] for d in days_not_pref))
-        penalties.append(sum(penalties_daypref) * PENALTY_DAYPREF)
-
-    for (T,D), n in td_pref.items():
-        if n == 0: # T cannot teach on day D
-            print(f"{T} - {D} - {n}")
-            model.Add(td[(Teachers[T], Days[D])] == 0)
+            prefs.append(td_pref.get((T,D), 2))
+        if set(prefs) - set([0, 2]): # teacher T prefers some days over others
+            if PENALTY_DAYPREF_SLIGHT > 0:
+                if set([2,3]) <= set(prefs):
+                    # days that are slightly less preferred
+                    days_slight_worse = [d for d in range(len(prefs)) if prefs[d] == 2]
+                    penalties_daypref.append(sum(td[(t,d)] for d in days_slight_worse) * PENALTY_DAYPREF_SLIGHT)
+            if PENALTY_DAYPREF_BAD > 0:
+                if 1 in set(prefs):
+                    # not preferred days
+                    days_bad = [d for d in range(len(prefs)) if prefs[d] == 1]
+                    penalties_daypref.append(sum(td[(t,d)] for d in days_bad) * PENALTY_DAYPREF_BAD)
+    penalties.append(sum(penalties_daypref))
 
 model.Minimize(sum(penalties))
 

@@ -282,7 +282,6 @@ model.Add(sum(src[(s,Rooms["big"],Courses["Airsteps 2"])] for s in range(len(slo
 
 # OPTIMIZATION
 
-penalties = [] # penalties to minimize
 PENALTY_OVERWORK = 100 # squared
 PENALTY_DAYS = 1000 # squared
 PENALTY_SPLIT = 500
@@ -291,15 +290,12 @@ PENALTY_DAYPREF_SLIGHT = 50
 PENALTY_DAYPREF_BAD = 1000
 PENALTY_TIMEPREF_SLIGHT = 50
 PENALTY_TIMEPREF_BAD = 1000
-penalties_overwork = []
-penalties_days = []
-penalties_split = []
-penalties_follow = []
-penalties_daypref = []
-penalties_timepref = []
+
+penalties = [] # list of all penalties
 
 if PENALTY_OVERWORK > 0:
     # teaching should be split evenly
+    penalties_overwork = []
     teach_slots = 2*len(courses_regular) + len(courses_solo)
     # TODO: some people might explicitly want more
     # disregarding people with t_max set (roughly - subtracting also number of courses from "defaul pool")
@@ -313,10 +309,11 @@ if PENALTY_OVERWORK > 0:
         excess_sq = model.NewIntVar(0, len(slots)**2, "Texcesssq:%i" % t)
         model.AddMultiplicationEquality(excess_sq, [excess, excess])
         penalties_overwork.append(excess_sq)
-    penalties.append(sum(penalties_overwork[i] * PENALTY_OVERWORK for i in range(len(penalties_overwork))))
+    penalties.append(sum(penalties_overwork) * PENALTY_OVERWORK)
 
 if PENALTY_DAYS > 0:
     # nobody should come to studio more days then necessary
+    penalties_days = []
     for t in range(len(teachers)):
         teaches_days = model.NewIntVar(0, len(days), "TD:%i" % t)
         model.Add(teaches_days == sum(td[(t,d)] for d in range(len(days))))
@@ -334,10 +331,11 @@ if PENALTY_DAYS > 0:
         days_extra_sq = model.NewIntVar(0, len(days)**2, "Tdds:%i" % t)
         model.AddMultiplicationEquality(days_extra_sq, [days_extra, days_extra])
         penalties_days.append(days_extra_sq)
-    penalties.append(sum(penalties_days[i] * PENALTY_DAYS for i in range(len(penalties_days))))
+    penalties.append(sum(penalties_days) * PENALTY_DAYS)
 
 if PENALTY_SPLIT > 0:
     # teacher should not wait between lessons
+    penalties_split = []
     for t in range(len(teachers)):
         days_split = model.NewIntVar(0, len(days), "TDsplit:%i" % t)
         tsplits = []
@@ -355,10 +353,11 @@ if PENALTY_SPLIT > 0:
             tsplits.append(tsplit)
         model.Add(days_split == sum(tsplits))
         penalties_split.append(days_split)
-    penalties.append(sum(penalties_split[i] * PENALTY_SPLIT for i in range(len(penalties_split))))
+    penalties.append(sum(penalties_split) * PENALTY_SPLIT)
 
 if PENALTY_FOLLOW > 0:
     # courses C1, C2 should happen one after the other (order is irrelevant)
+    penalties_follow = []
     for C1, C2 in cc_follow:
         c1 = Courses[C1]
         c2 = Courses[C2]
@@ -381,10 +380,11 @@ if PENALTY_FOLLOW > 0:
         model.AddBoolOr([sameday.Not(), asd1.Not()]).OnlyEnforceIf(follows.Not())
         penalties_follow.append(follows.Not())
     if penalties_follow:
-        penalties.append(sum(penalties_follow[i] * PENALTY_FOLLOW for i in range(len(penalties_follow))))
+        penalties.append(sum(penalties_follow) * PENALTY_FOLLOW)
 
 if PENALTY_DAYPREF_SLIGHT > 0 or PENALTY_DAYPREF_BAD > 0:
     # day preferences
+    penalties_daypref = []
     for T in teachers:
         t = Teachers[T]
         prefs = []
@@ -406,6 +406,7 @@ if PENALTY_DAYPREF_SLIGHT > 0 or PENALTY_DAYPREF_BAD > 0:
 
 if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
     # time preferences
+    penalties_timepref = []
     for T in teachers:
         t = Teachers[T]
         prefs = []

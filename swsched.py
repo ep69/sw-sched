@@ -117,6 +117,14 @@ td_pref = {}
 td_pref[("Tom-S.", "Thursday")] = 0 # acroyoga
 td_pref[("Tom-S.", "Monday")] = 3
 
+# teacher T availability at time X (0 - first slot, 1 - second slot, 2 - third slot):
+#   0 cannot
+#   1 barely
+#   2 fine (default)
+#   3 great
+ttime_pref = {}
+ttime_pref[("Standa", 1)] = 3
+
 # course C1 must happen on different day than C2
 cc_different_day = [
         ("LH 1 - Beginners (1)", "LH 1 - Beginners (2)"),
@@ -269,7 +277,7 @@ model.Add(sum(src[(s,Rooms["big"],Courses["Airsteps 2"])] for s in range(len(slo
 #model.Add(src[(0,Rooms["big"],Courses["Airsteps 2"])] == 1)
 
 # course has to take place at specific slot
-#model.Add(sum(src[(1,r,Courses["Collegiate Shag 1"])] for r in range(len(rooms))) == 1)
+#model.Add(sum(src[(0,r,Courses["Collegiate Shag 1"])] for r in range(len(rooms))) == 1)
 
 
 # OPTIMIZATION
@@ -281,11 +289,14 @@ PENALTY_SPLIT = 500
 PENALTY_FOLLOW = 300
 PENALTY_DAYPREF_SLIGHT = 50
 PENALTY_DAYPREF_BAD = 1000
+PENALTY_TIMEPREF_SLIGHT = 50
+PENALTY_TIMEPREF_BAD = 1000
 penalties_overwork = []
 penalties_days = []
 penalties_split = []
 penalties_follow = []
 penalties_daypref = []
+penalties_timepref = []
 
 if PENALTY_OVERWORK > 0:
     # teaching should be split evenly
@@ -305,8 +316,8 @@ if PENALTY_OVERWORK > 0:
     penalties.append(sum(penalties_overwork[i] * PENALTY_OVERWORK for i in range(len(penalties_overwork))))
 
 if PENALTY_DAYS > 0:
+    # nobody should come to studio more days then necessary
     for t in range(len(teachers)):
-        # nobody should come to studio more days then necessary
         teaches_days = model.NewIntVar(0, len(days), "TD:%i" % t)
         model.Add(teaches_days == sum(td[(t,d)] for d in range(len(days))))
         teaches_minus_1 = model.NewIntVar(0, len(days), "Tm1:%i" % t)
@@ -326,6 +337,7 @@ if PENALTY_DAYS > 0:
     penalties.append(sum(penalties_days[i] * PENALTY_DAYS for i in range(len(penalties_days))))
 
 if PENALTY_SPLIT > 0:
+    # teacher should not wait between lessons
     for t in range(len(teachers)):
         days_split = model.NewIntVar(0, len(days), "TDsplit:%i" % t)
         tsplits = []
@@ -346,6 +358,7 @@ if PENALTY_SPLIT > 0:
     penalties.append(sum(penalties_split[i] * PENALTY_SPLIT for i in range(len(penalties_split))))
 
 if PENALTY_FOLLOW > 0:
+    # courses C1, C2 should happen one after the other (order is irrelevant)
     for C1, C2 in cc_follow:
         c1 = Courses[C1]
         c2 = Courses[C2]
@@ -367,9 +380,11 @@ if PENALTY_FOLLOW > 0:
         model.AddBoolAnd([sameday, asd1]).OnlyEnforceIf(follows)
         model.AddBoolOr([sameday.Not(), asd1.Not()]).OnlyEnforceIf(follows.Not())
         penalties_follow.append(follows.Not())
-    penalties.append(sum(penalties_follow[i] * PENALTY_FOLLOW for i in range(len(penalties_follow))))
+    if penalties_follow:
+        penalties.append(sum(penalties_follow[i] * PENALTY_FOLLOW for i in range(len(penalties_follow))))
 
 if PENALTY_DAYPREF_SLIGHT > 0 or PENALTY_DAYPREF_BAD > 0:
+    # day preferences
     for T in teachers:
         t = Teachers[T]
         prefs = []
@@ -386,7 +401,31 @@ if PENALTY_DAYPREF_SLIGHT > 0 or PENALTY_DAYPREF_BAD > 0:
                     # not preferred days
                     days_bad = [d for d in range(len(prefs)) if prefs[d] == 1]
                     penalties_daypref.append(sum(td[(t,d)] for d in days_bad) * PENALTY_DAYPREF_BAD)
-    penalties.append(sum(penalties_daypref))
+    if penalties_daypref:
+        penalties.append(sum(penalties_daypref))
+
+if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
+    # time preferences
+    for T in teachers:
+        t = Teachers[T]
+        prefs = []
+        for time in range(len(times)):
+            prefs.append(ttime_pref.get((T,time), 2))
+        if set(prefs) - set([0, 2]): # teacher T prefers some times over others
+            if PENALTY_TIMEPREF_SLIGHT > 0:
+                if set([2,3]) <= set(prefs):
+                    # times that are slightly less preferred
+                    times_slight_worse = [time for time in range(len(prefs)) if prefs[time] == 2]
+                    slots_slight_worse = [d*len(times)+time for time in times_slight_worse for d in range(len(days))]
+                    penalties_timepref.append(sum(ts[(t,s)] for s in slots_slight_worse) * PENALTY_TIMEPREF_SLIGHT)
+            if PENALTY_TIMEPREF_BAD > 0:
+                if 1 in set(prefs):
+                    # not preferred times
+                    times_bad = [time for time in range(len(prefs)) if prefs[time] == 1]
+                    slots_bad = [d*len(times)+time for time in times_bad for d in range(len(days))]
+                    penalties_timepref.append(sum(ts[(t,s)] for s in slots_bad) * PENALTY_TIMEPREF_BAD)
+    if penalties_timepref:
+        penalties.append(sum(penalties_timepref))
 
 model.Minimize(sum(penalties))
 

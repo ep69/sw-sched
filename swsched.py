@@ -52,6 +52,7 @@ courses_open = [
         "Shag/Balboa Open Training",
         "Teachers Training",
         "Blues/Slow Open Training",
+        "Balboa Closed Training",
         ]
 courses_solo = [
         "Solo 1 - Improvisation",

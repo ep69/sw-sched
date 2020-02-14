@@ -18,35 +18,48 @@ for i, R in enumerate(rooms):
 teachers_lead = [
         "David",
         "Tom-S.",
-        "Kuba",
-        "Peta",
+        "Kuba-Š.",
+        "Peťa",
         "Tom-K.",
         "Jarda",
         "Quique",
-        "Mato",
+        "Maťo",
         "Martin",
         "Michal",
         "Vojta",
         "Standa",
         "Kolin",
         "Kepo", #
+        "Vojta-N.",
+        "Kuba-B.",
         ]
 teachers_follow = [
         "Terka",
-        "Janca",
-        "Ilca",
+        "Janča",
+        "Ilča",
         "Pavli",
-        "Blaza",
+        "Bláža",
         "Silvia",
-        "Ivca",
+        "Ivča",
         "Linda",
-        "Maria",
+        "Mária",
         "Poli", #
+        "Míša",
+        "Zuzka",
+        "Soňa",
 	]
+
 teachers = teachers_lead + teachers_follow
 Teachers = {}
 for (i, t) in enumerate(teachers):
     Teachers[t] = i
+
+teachers_core = ["David", "Tom-S.", "Kuba-Š.", "Peťa", "Tom-K.", "Jarda", "Quique", "Martin", "Michal", "Vojta", "Kolin", "Kepo", "Terka", "Janča", "Ilča", "Pavli", "Silvia", "Linda", "Mária", "Poli"]
+teachers_external = list(set(teachers) - set(teachers_core))
+print(f"External teachers: {teachers_external}")
+
+EXTERNAL_MIN = 4
+EXTERNAL_MAX = 6
 
 courses_open = [
         "Shag/Balboa Open Training",
@@ -92,8 +105,8 @@ t_max["Poli"] = 0
 
 # course C can be taught only by Ts
 teachers_shag = ["Terka", "Linda", "Kepo", "Standa"]
-teachers_balboa = ["Peta", "Jarda", "Poli", "Pavli", "Ilca"]
-teachers_airsteps = ["Tom-S.", "Janca"]
+teachers_balboa = ["Peťa", "Jarda", "Poli", "Pavli", "Ilča"]
+teachers_airsteps = ["Tom-S.", "Janča"]
 ct_possible = {}
 ct_possible["Collegiate Shag 1"] = teachers_shag
 ct_possible["Balboa Beginners"] = teachers_balboa
@@ -111,7 +124,7 @@ tc_strict["Standa"] = ["Collegiate Shag 1"]
 
 # teacher T1 must not teach a course with teacher T2
 tt_not_together = [
-        ("Michal", "Ilca"),
+        ("Michal", "Ilča"),
         ]
 
 # teacher T availability at day D:
@@ -277,6 +290,20 @@ for C1, C2 in cc_different_day:
 
 for (C, R) in cr_strict.items():
     model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 1)
+
+# external teachers must teach max. 1 course
+for T in teachers_external:
+    model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) <= 1)
+# there should be between EXTERNAL_MIN and EXTERNAL_MAX external teachers teaching
+model.Add(sum(tc[(Teachers[T],c)] for T in teachers_external for c in range(len(courses))) >= EXTERNAL_MIN)
+model.Add(sum(tc[(Teachers[T],c)] for T in teachers_external for c in range(len(courses))) <= EXTERNAL_MAX)
+# external teachers must teach together with core teachers
+for C in courses_regular:
+    model.Add(sum(tc[(Teachers[T],Courses[C])] for T in teachers_external) <= 1)
+# external teachers cannot teach solo courses
+for C in courses_solo:
+    model.Add(sum(tc[(Teachers[T],Courses[C])] for T in teachers_external) == 0)
+
 
 # Rather specific constraints:
 

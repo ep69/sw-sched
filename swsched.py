@@ -151,16 +151,17 @@ ttime_pref = {}
 ttime_pref[("Standa", 1)] = 3
 
 # course Cx must happen on different day and at different time than Cy
-cc_different = [
+courses_different = [
         ["LH 1 - Beginners /1", "LH 1 - Beginners /2", "LH 1 - Beginners EN"],
         ["LH 2 - Party Moves /1", "LH 2 - Party Moves /2"],
         ["LH 2.5 - Swing-out /1", "LH 2.5 - Swing-out /2"],
         ["LH 3 - Charleston 1", "LH 3 - Lindy Charleston EN"],
         ]
 
-# course C1 should happen right before or right after C2
-cc_follow = [
-        ("Collegiate Shag 2", "Shag/Balboa Open Training"),
+# course C1, C2, (C3) should happend on the same day in different times
+courses_same = [
+        ["Collegiate Shag 2", "Shag/Balboa Open Training"],
+        ["Balboa Beginners 2", "Balboa Advanced", "Balboa Closed Training"],
         #("Collegiate Shag 1", "Airsteps 2"),
         #("Balboa Beginners", "Shag/Balboa Open Training"),
         #("Balboa Intermediate", "Shag/Balboa Open Training"),
@@ -201,7 +202,7 @@ for d in range(len(days)):
 cs = []
 # course C takes place in slot S
 for c in range(len(courses)):
-    cs.append(model.NewIntVar(0, len(slots), ""))
+    cs.append(model.NewIntVar(0, len(slots)-1, ""))
 
 # teacher T teaches in slot S course C iff course C takes place at slot S and is taught by teacher T
 # inferring CTS info
@@ -291,11 +292,10 @@ for (T,D), n in td_pref.items():
     if n == 0: # T cannot teach on day D
         model.Add(td[(Teachers[T], Days[D])] == 0)
 
-for Cs in cc_different:
+for Cs in courses_different:
     daylist = [] # days
     timelist = [] # times
-    assert(len(Cs) >= 2)
-    assert(len(Cs) <= min(len(days), len(times)))
+    assert(2 <= len(Cs) <= min(len(days), len(times)))
     for C in Cs:
         day = model.NewIntVar(0, len(days)-1, "")
         time = model.NewIntVar(0, len(times)-1, "")
@@ -304,6 +304,21 @@ for Cs in cc_different:
         daylist.append(day)
         timelist.append(time)
     model.AddAllDifferent(daylist)
+    model.AddAllDifferent(timelist)
+
+# it should probably not be a strict limitation, but it is much easier to write
+for Cs in courses_same:
+    daylist = [] # days
+    timelist = [] # times
+    assert(2 <= len(Cs) <= len(times))
+    for C in Cs:
+        day = model.NewIntVar(0, len(days)-1, "")
+        time = model.NewIntVar(0, len(times)-1, "")
+        model.AddDivisionEquality(day, cs[Courses[C]], len(times))
+        model.AddModuloEquality(time, cs[Courses[C]], len(times))
+        daylist.append(day)
+        timelist.append(time)
+    model.AddAllowedAssignments(daylist, [[d] * len(Cs) for d in range(len(days))])
     model.AddAllDifferent(timelist)
 
 for (C, R) in cr_strict.items():
@@ -349,7 +364,6 @@ if damian:
 PENALTY_OVERWORK = 100 # squared
 PENALTY_DAYS = 1000 # squared
 PENALTY_SPLIT = 500
-PENALTY_FOLLOW = 300
 PENALTY_DAYPREF_SLIGHT = 50
 PENALTY_DAYPREF_BAD = 1000
 PENALTY_TIMEPREF_SLIGHT = 50
@@ -418,33 +432,6 @@ if PENALTY_SPLIT > 0:
         model.Add(days_split == sum(tsplits))
         penalties_split.append(days_split)
     penalties.append(sum(penalties_split) * PENALTY_SPLIT)
-
-if PENALTY_FOLLOW > 0:
-    # courses C1, C2 should happen one after the other (order is irrelevant)
-    penalties_follow = []
-    for C1, C2 in cc_follow:
-        c1 = Courses[C1]
-        c2 = Courses[C2]
-        d1 = model.NewIntVar(0, len(days), "")
-        d2 = model.NewIntVar(0, len(days), "")
-        model.AddDivisionEquality(d1, cs[c1], len(times))
-        model.AddDivisionEquality(d2, cs[c2], len(times))
-        sameday = model.NewBoolVar("")
-        model.Add(d1 == d2).OnlyEnforceIf(sameday)
-        model.Add(d1 != d2).OnlyEnforceIf(sameday.Not())
-        slot_diff = model.NewIntVar(-len(slots), len(slots), "")
-        abs_slot_diff = model.NewIntVar(0, len(slots), "")
-        model.Add(slot_diff == cs[c1] - cs[c2])
-        model.AddAbsEquality(abs_slot_diff, slot_diff)
-        asd1 = model.NewBoolVar("") # abs_slot_diff == 1
-        model.Add(abs_slot_diff == 1).OnlyEnforceIf(asd1)
-        model.Add(abs_slot_diff != 1).OnlyEnforceIf(asd1.Not())
-        follows = model.NewBoolVar("") # follows
-        model.AddBoolAnd([sameday, asd1]).OnlyEnforceIf(follows)
-        model.AddBoolOr([sameday.Not(), asd1.Not()]).OnlyEnforceIf(follows.Not())
-        penalties_follow.append(follows.Not())
-    if penalties_follow:
-        penalties.append(sum(penalties_follow) * PENALTY_FOLLOW)
 
 if PENALTY_DAYPREF_SLIGHT > 0 or PENALTY_DAYPREF_BAD > 0:
     # day preferences

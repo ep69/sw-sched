@@ -150,12 +150,12 @@ td_pref[("Tom-S.", "Monday")] = 3
 ttime_pref = {}
 ttime_pref[("Standa", 1)] = 3
 
-# course C1 must happen on different day than C2
-cc_different_day = [
-        ("LH 1 - Beginners /1", "LH 1 - Beginners /2"),
-        ("LH 2 - Party Moves /1", "LH 2 - Party Moves /2"),
-        ("LH 2.5 - Swing-out /1", "LH 2.5 - Swing-out /2"),
-        ("LH 3 - Charleston 1", "LH 3 - Lindy Charleston EN"),
+# course Cx must happen on different day and at different time than Cy
+cc_different = [
+        ["LH 1 - Beginners /1", "LH 1 - Beginners /2", "LH 1 - Beginners EN"],
+        ["LH 2 - Party Moves /1", "LH 2 - Party Moves /2"],
+        ["LH 2.5 - Swing-out /1", "LH 2.5 - Swing-out /2"],
+        ["LH 3 - Charleston 1", "LH 3 - Lindy Charleston EN"],
         ]
 
 # course C1 should happen right before or right after C2
@@ -291,12 +291,20 @@ for (T,D), n in td_pref.items():
     if n == 0: # T cannot teach on day D
         model.Add(td[(Teachers[T], Days[D])] == 0)
 
-for C1, C2 in cc_different_day:
-    slot_diff = model.NewIntVar(-len(slots), len(slots), "")
-    model.Add(slot_diff == cs[Courses[C1]] - cs[Courses[C2]])
-    abs_slot_diff = model.NewIntVar(0, len(slots), "")
-    model.AddAbsEquality(abs_slot_diff, slot_diff)
-    model.Add(abs_slot_diff >= len(times))
+for Cs in cc_different:
+    daylist = [] # days
+    timelist = [] # times
+    assert(len(Cs) >= 2)
+    assert(len(Cs) <= min(len(days), len(times)))
+    for C in Cs:
+        day = model.NewIntVar(0, len(days)-1, "")
+        time = model.NewIntVar(0, len(times)-1, "")
+        model.AddDivisionEquality(day, cs[Courses[C]], len(times))
+        model.AddModuloEquality(time, cs[Courses[C]], len(times))
+        daylist.append(day)
+        timelist.append(time)
+    model.AddAllDifferent(daylist)
+    model.AddAllDifferent(timelist)
 
 for (C, R) in cr_strict.items():
     model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 1)

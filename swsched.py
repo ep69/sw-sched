@@ -137,6 +137,7 @@ cc_follow = [
         #("Balboa Intermediate", "Shag/Balboa Open Training"),
         ]
 
+
 model = cp_model.CpModel()
 
 # VARIABLES
@@ -279,6 +280,18 @@ model.Add(sum(src[(s,Rooms["big"],Courses["Airsteps 2"])] for s in range(len(slo
 # course has to take place at specific slot
 #model.Add(sum(src[(0,r,Courses["Collegiate Shag 1"])] for r in range(len(rooms))) == 1)
 
+# Damian
+damian = True
+if damian:
+    for T in "Tom-K.", "Pavli":
+        model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) == 1)
+    damianday = model.NewIntVar(0, len(days)-1, "damianday")
+    for d in range(len(days)):
+        hit = model.NewBoolVar("")
+        model.Add(damianday == d).OnlyEnforceIf(hit)
+        model.Add(damianday != d).OnlyEnforceIf(hit.Not())
+        model.Add(ts[(Teachers["Tom-K."],d*len(times)+0)] == 1).OnlyEnforceIf(hit)
+        model.Add(ts[(Teachers["Pavli"],d*len(times)+1)] == 1).OnlyEnforceIf(hit)
 
 # OPTIMIZATION
 

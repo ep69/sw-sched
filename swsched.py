@@ -63,33 +63,33 @@ EXTERNAL_MAX = 6
 
 courses_open = [
         "Shag/Balboa Open Training",
+        "Lindy/Charleston Open Training",
         "Teachers Training",
         "Blues/Slow Open Training",
         "Balboa Closed Training",
         ]
 courses_solo = [
-        "Solo 1 - Improvisation",
-        "Intensive Training",
-        "Choreo Atelier - Ladies Edition",
         ]
 courses_regular = [
-        "LH 1 - Beginners (1)",
-        "LH 1 - Beginners (2)",
-        "LH 2 - Survival Guide (1)",
-        "LH 2 - Survival Guide (2)",
-        "LH 2 - Party Moves",
-        "LH 3 - Cool Moves & Styling",
+        "LH 1 - Beginners /1",
+        "LH 1 - Beginners /2",
+        "LH 1 - Beginners EN",
+        "LH 2 - Survival Guide",
+        "LH 2 - Party Moves /1",
+        "LH 2 - Party Moves /2",
+        "LH 2.5 - Swing-out /1",
+        "LH 2.5 - Swing-out /2",
+        "LH 3 - Charleston 1",
+        "LH 3 - Lindy Charleston EN",
         "LH 3 - Musicality",
-        "LH 4 - Let the Music Be with You",
-        "LH 4 - Lindy Charleston",
-        "LH 2.5 - Swing-out (1)",
-        "LH 2.5 - Swing-out (2)",
+        "LH 4 - Moves and Their Technique",
+        "LH 4 - Swing-out Clinic",
         "LH 5 - Topic-less",
-        "Charleston 2",
+        "Balboa Beginners 2",
+        "Balboa Advanced",
         "Airsteps 2",
-        "Balboa Beginners",
-        "Balboa Intermediate",
-        "Collegiate Shag 1",
+        "Choreo Atelier - Airsteps Edition",
+        "Collegiate Shag 2",
         ]
 courses = courses_regular + courses_solo + courses_open
 Courses = {}
@@ -108,19 +108,25 @@ teachers_shag = ["Terka", "Linda", "Kepo", "Standa"]
 teachers_balboa = ["Peťa", "Jarda", "Poli", "Pavli", "Ilča"]
 teachers_airsteps = ["Tom-S.", "Janča"]
 ct_possible = {}
-ct_possible["Collegiate Shag 1"] = teachers_shag
-ct_possible["Balboa Beginners"] = teachers_balboa
-ct_possible["Balboa Intermediate"] = teachers_balboa
+#ct_possible["Collegiate Shag 1"] = teachers_shag
+ct_possible["Collegiate Shag 2"] = teachers_shag
+#ct_possible["Balboa Beginners"] = teachers_balboa
+ct_possible["Balboa Beginners 2"] = teachers_balboa
+#ct_possible["Balboa Intermediate"] = teachers_balboa
+ct_possible["Balboa Advanced"] = teachers_balboa
+#ct_possible["Airsteps 1"] = teachers_airsteps
 ct_possible["Airsteps 2"] = teachers_airsteps
+ct_possible["Choreo Atelier - Airsteps Edition"] = teachers_airsteps
 
 # course C takes place in room R
 cr_strict = {}
 cr_strict["Airsteps 2"] = "big"
-cr_strict["Collegiate Shag 1"] = "big"
+#cr_strict["Collegiate Shag 1"] = "big"
+cr_strict["Collegiate Shag 2"] = "big"
 
 # teacher T must teach courses Cs
 tc_strict = {}
-tc_strict["Standa"] = ["Collegiate Shag 1"]
+tc_strict["Standa"] = ["Collegiate Shag 2"]
 
 # teacher T1 must not teach a course with teacher T2
 tt_not_together = [
@@ -146,12 +152,16 @@ ttime_pref[("Standa", 1)] = 3
 
 # course C1 must happen on different day than C2
 cc_different_day = [
-        ("LH 1 - Beginners (1)", "LH 1 - Beginners (2)"),
+        ("LH 1 - Beginners /1", "LH 1 - Beginners /2"),
+        ("LH 2 - Party Moves /1", "LH 2 - Party Moves /2"),
+        ("LH 2.5 - Swing-out /1", "LH 2.5 - Swing-out /2"),
+        ("LH 3 - Charleston 1", "LH 3 - Lindy Charleston EN"),
         ]
 
 # course C1 should happen right before or right after C2
 cc_follow = [
-        ("Collegiate Shag 1", "Airsteps 2"),
+        ("Collegiate Shag 2", "Shag/Balboa Open Training"),
+        #("Collegiate Shag 1", "Airsteps 2"),
         #("Balboa Beginners", "Shag/Balboa Open Training"),
         #("Balboa Intermediate", "Shag/Balboa Open Training"),
         ]

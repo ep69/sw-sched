@@ -99,6 +99,11 @@ ct_possible["Balboa Beginners"] = teachers_balboa
 ct_possible["Balboa Intermediate"] = teachers_balboa
 ct_possible["Airsteps 2"] = teachers_airsteps
 
+# course C takes place in room R
+cr_strict = {}
+cr_strict["Airsteps 2"] = "big"
+cr_strict["Collegiate Shag 1"] = "big"
+
 # teacher T must teach courses Cs
 tc_strict = {}
 tc_strict["Standa"] = ["Collegiate Shag 1"]
@@ -269,10 +274,10 @@ for C1, C2 in cc_different_day:
     model.AddAbsEquality(abs_slot_diff, slot_diff)
     model.Add(abs_slot_diff >= len(times))
 
-# Rather specific constraints:
+for (C, R) in cr_strict.items():
+    model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 1)
 
-# course has to take place at specific room
-model.Add(sum(src[(s,Rooms["big"],Courses["Airsteps 2"])] for s in range(len(slots))) == 1)
+# Rather specific constraints:
 
 # course has to take place at specific slot and room
 #model.Add(src[(0,Rooms["big"],Courses["Airsteps 2"])] == 1)

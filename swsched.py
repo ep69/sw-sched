@@ -56,7 +56,7 @@ for (i, t) in enumerate(teachers):
 
 teachers_core = ["David", "Tom-S.", "Kuba-Š.", "Peťa", "Tom-K.", "Jarda", "Quique", "Martin", "Michal", "Vojta", "Kolin", "Kepo", "Terka", "Janča", "Ilča", "Pavli", "Silvia", "Linda", "Mária", "Poli"]
 teachers_external = list(set(teachers) - set(teachers_core))
-print(f"External teachers: {teachers_external}")
+#print(f"External teachers: {teachers_external}")
 
 EXTERNAL_MIN = 4
 EXTERNAL_MAX = 6
@@ -98,10 +98,13 @@ for (i, c) in enumerate(courses):
 
 # SPECIFIC HARD CONSTRAINTS
 
-# teacher T can teach maximum N courses
-t_max = {}
-t_max["Kepo"] = 0
-t_max["Poli"] = 0
+# teacher T:
+#   can teach maximum N courses
+#   should teach minimum N-1 courses
+# default is optimization for average utilization - maximum is not strict in this case
+t_util_desired = {}
+t_util_desired["Kepo"] = 0
+t_util_desired["Poli"] = 0
 
 # course C can be taught only by Ts
 teachers_shag = ["Terka", "Linda", "Kepo", "Standa"]
@@ -256,13 +259,12 @@ for c in range(len(courses)):
     elif courses[c] in courses_open:
         model.Add(sum(tc[(Teachers[T],c)] for T in teachers) == 0)
     else:
-        sys.exit(10) # TODO
+        assert(False)
 
 # SPECIFIC CONSTRAINTS
 
-for (T, n) in t_max.items():
-    t = Teachers[T]
-    model.Add(sum(tc[(t,c)] for c in range(len(courses))) <= n)
+for (T, n) in t_util_desired.items():
+    model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) <= n)
 
 if tc_strict:
     strict_assignments = []
@@ -361,7 +363,8 @@ if damian:
 
 # OPTIMIZATION
 
-PENALTY_OVERWORK = 100 # squared
+PENALTY_OVERWORK = 111 # squared
+PENALTY_UNDERWORK = 33 
 PENALTY_DAYS = 1000 # squared
 PENALTY_SPLIT = 500
 PENALTY_DAYPREF_SLIGHT = 50
@@ -371,23 +374,37 @@ PENALTY_TIMEPREF_BAD = 1000
 
 penalties = [] # list of all penalties
 
-if PENALTY_OVERWORK > 0:
+if PENALTY_OVERWORK > 0 or PENALTY_UNDERWORK > 0:
     # teaching should be split evenly
     penalties_overwork = []
-    teach_slots = 2*len(courses_regular) + len(courses_solo)
-    # TODO: some people might explicitly want more
-    # disregarding people with t_max set (roughly - subtracting also number of courses from "defaul pool")
-    util_avg = (teach_slots - sum(t_max.values())) // ((len(teachers)) - len(t_max)) + 1
+    penalties_underwork = []
+    # disregarding people with t_util_desired set (roughly - subtracting also number of courses from "defaul pool")
+    util_avg = (2*len(courses_regular) + len(courses_solo) - sum(t_util_desired.values()) - EXTERNAL_MAX) // ((len(teachers_core)) - len(t_util_desired)) + 1
     print(f"Maximum desired utilization: {util_avg}")
-    for t in range(len(teachers)):
-        util_diff = model.NewIntVar(-util_avg, len(slots), "")
-        model.Add(util_diff == teach_num[t] - util_avg)
-        excess = model.NewIntVar(0, len(slots), "")
-        model.AddMaxEquality(excess, [util_diff, 0])
-        excess_sq = model.NewIntVar(0, len(slots)**2, "Texcesssq:%i" % t)
-        model.AddMultiplicationEquality(excess_sq, [excess, excess])
-        penalties_overwork.append(excess_sq)
-    penalties.append(sum(penalties_overwork) * PENALTY_OVERWORK)
+    for T in teachers_core:
+        t = Teachers[T]
+        min_diff = -max(list(t_util_desired.values()) + [util_avg])
+        max_diff = len(courses_regular) + len(courses_solo)
+        util_diff = model.NewIntVar(min_diff, max_diff, "")
+        # ideal utilization - either what teacher specifies, or average
+        util_ideal = t_util_desired.get(T, util_avg)
+        model.Add(util_diff == teach_num[t] - util_ideal)
+        if PENALTY_OVERWORK > 0:
+            util_excess = model.NewIntVar(0, max_diff, "")
+            model.AddMaxEquality(util_excess, [util_diff, 0])
+            util_excess_sq = model.NewIntVar(0, max_diff**2, "Texcesssq:%i" % t)
+            model.AddMultiplicationEquality(util_excess_sq, [util_excess, util_excess])
+            penalties_overwork.append(util_excess_sq)
+        if PENALTY_UNDERWORK > 0:
+            # we consider -1 difference ok - e.g., if teacher wants to teach 4 courses, it is ok to teach 3
+            util_diff_incr = model.NewIntVar(min_diff+1, max_diff+1, "")
+            model.Add(util_diff_incr == util_diff + 1)
+            util_lack = model.NewIntVar(min_diff, 0, "")
+            model.AddMinEquality(util_lack, [util_diff_incr, 0])
+            util_lack_abs = model.NewIntVar(0, abs(min_diff), "")
+            model.AddAbsEquality(util_lack_abs, util_lack)
+            penalties_underwork.append(util_lack_abs)
+    penalties.append(sum(penalties_overwork) * PENALTY_OVERWORK + sum(penalties_underwork) * PENALTY_UNDERWORK)
 
 if PENALTY_DAYS > 0:
     # nobody should come to studio more days then necessary
@@ -515,3 +532,13 @@ for s in range(len(slots)):
                 if len(Ts) == 2 and Ts[0] in teachers_follow:
                     Ts[0], Ts[1] = Ts[1], Ts[2]
                 print(f"{slots[s]} in {rooms[r]} room: {courses[c]} / {'+'.join(Ts)}")
+
+print()
+print(f"Teachers' utilization (default: {util_avg}):")
+for n in range(len(slots)):
+    Ts = []
+    for t in range(len(teachers)):
+        if solver.Value(teach_num[t]) == n:
+            Ts.append(teachers[t])
+    if Ts:
+        print(f"{n}: {' '.join(Ts)}")

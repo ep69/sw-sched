@@ -26,10 +26,10 @@ teachers_lead = [
         "Maťo",
         "Martin",
         "Michal",
-        "Vojta",
+        "Vojta-S.",
         "Standa",
         "Kolin",
-        "Kepo", #
+        "Kepo",
         "Vojta-N.",
         "Kuba-B.",
         ]
@@ -43,23 +43,22 @@ teachers_follow = [
         "Ivča",
         "Linda",
         "Mária",
-        "Poli", #
+        "Poli",
         "Míša",
         "Zuzka",
         "Soňa",
 	]
+teachers_core = ["David", "Tom-S.", "Kuba-Š.", "Peťa", "Tom-K.", "Jarda", "Quique", "Martin", "Michal", "Kolin", "Kepo", "Terka", "Janča", "Ilča", "Pavli", "Silvia", "Linda", "Mária", "Soňa", "Poli"]
+teachers_external = list((set(teachers_lead) | set(teachers_follow)) - set(teachers_core))
+print(f"External teachers: {teachers_external}")
+teachers_external_active = ["Standa", "Vojta-N.", "Kuba-B.", "Zuzka", "Míša"]
+teachers_active = teachers_core + teachers_external_active
+print(f"Active teachers: {teachers_active}")
 
 teachers = teachers_lead + teachers_follow
 Teachers = {}
 for (i, t) in enumerate(teachers):
     Teachers[t] = i
-
-teachers_core = ["David", "Tom-S.", "Kuba-Š.", "Peťa", "Tom-K.", "Jarda", "Quique", "Martin", "Michal", "Vojta", "Kolin", "Kepo", "Terka", "Janča", "Ilča", "Pavli", "Silvia", "Linda", "Mária", "Poli"]
-teachers_external = list(set(teachers) - set(teachers_core))
-#print(f"External teachers: {teachers_external}")
-
-EXTERNAL_MIN = 4
-EXTERNAL_MAX = 6
 
 courses_open = [
         "Shag/Balboa Open Training",
@@ -103,8 +102,28 @@ for (i, c) in enumerate(courses):
 #   should teach minimum N-1 courses
 # default is optimization for average utilization - maximum is not strict in this case
 t_util_desired = {}
+# people not available
 t_util_desired["Kepo"] = 0
 t_util_desired["Poli"] = 0
+# leads' desires
+t_util_desired["David"] = 1
+t_util_desired["Kolin"] = 1
+t_util_desired["Quique"] = 1
+t_util_desired["Jarda"] = 2
+t_util_desired["Kuba-Š."] = 4
+t_util_desired["Martin"] = 1
+t_util_desired["Michal"] = 2
+t_util_desired["Peťa"] = 1
+t_util_desired["Tom-S."] = 3
+t_util_desired["Tom-K."] = 1
+# follows' desires
+t_util_desired["Ilča"] = 5
+t_util_desired["Terka"] = 3
+t_util_desired["Janča"] = 6
+t_util_desired["Linda"] = 2
+t_util_desired["Mária"] = 2
+t_util_desired["Silvia"] = 2
+t_util_desired["Pavli"] = 1
 
 # course C can be taught only by Ts
 teachers_shag = ["Terka", "Linda", "Kepo", "Standa"]
@@ -266,6 +285,11 @@ for c in range(len(courses)):
 for (T, n) in t_util_desired.items():
     model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) <= n)
 
+# only active teachers teach
+for t in range(len(teachers)):
+    if teachers[t] not in teachers_active:
+        model.Add(sum(tc[(t,c)] for c in range(len(courses))) == 0)
+
 if tc_strict:
     strict_assignments = []
     for (T, Cs) in tc_strict.items():
@@ -326,12 +350,9 @@ for Cs in courses_same:
 for (C, R) in cr_strict.items():
     model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 1)
 
-# external teachers must teach max. 1 course
-for T in teachers_external:
-    model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) <= 1)
-# there should be between EXTERNAL_MIN and EXTERNAL_MAX external teachers teaching
-model.Add(sum(tc[(Teachers[T],c)] for T in teachers_external for c in range(len(courses))) >= EXTERNAL_MIN)
-model.Add(sum(tc[(Teachers[T],c)] for T in teachers_external for c in range(len(courses))) <= EXTERNAL_MAX)
+# external teachers must teach exactly 1 course
+for T in teachers_external_active:
+    model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) == 1)
 # external teachers must teach together with core teachers
 for C in courses_regular:
     model.Add(sum(tc[(Teachers[T],Courses[C])] for T in teachers_external) <= 1)
@@ -348,6 +369,9 @@ for C in courses_solo:
 # course has to take place at specific slot
 #model.Add(sum(src[(0,r,Courses["Collegiate Shag 1"])] for r in range(len(rooms))) == 1)
 
+# Standa cannot teach the first Tuesday slot
+model.Add(ts[(Teachers["Standa"],3)] == 0)
+
 # Damian
 damian = True
 if damian:
@@ -363,8 +387,8 @@ if damian:
 
 # OPTIMIZATION
 
-PENALTY_OVERWORK = 111 # squared
-PENALTY_UNDERWORK = 33 
+PENALTY_OVERWORK = 100 # squared
+PENALTY_UNDERWORK = 33
 PENALTY_DAYS = 1000 # squared
 PENALTY_SPLIT = 500
 PENALTY_DAYPREF_SLIGHT = 50
@@ -379,15 +403,16 @@ if PENALTY_OVERWORK > 0 or PENALTY_UNDERWORK > 0:
     penalties_overwork = []
     penalties_underwork = []
     # disregarding people with t_util_desired set (roughly - subtracting also number of courses from "defaul pool")
-    util_avg = (2*len(courses_regular) + len(courses_solo) - sum(t_util_desired.values()) - EXTERNAL_MAX) // ((len(teachers_core)) - len(t_util_desired)) + 1
-    print(f"Maximum desired utilization: {util_avg}")
+    #util_avg = (2*len(courses_regular) + len(courses_solo) - sum(t_util_desired.values()) - EXTERNAL_MAX) \
+    #   // (len(teachers_core) - len(t_util_desired)) \
+    #   + 1
     for T in teachers_core:
         t = Teachers[T]
-        min_diff = -max(list(t_util_desired.values()) + [util_avg])
+        min_diff = -max(list(t_util_desired.values()) + [1])
         max_diff = len(courses_regular) + len(courses_solo)
         util_diff = model.NewIntVar(min_diff, max_diff, "")
         # ideal utilization - either what teacher specifies, or average
-        util_ideal = t_util_desired.get(T, util_avg)
+        util_ideal = t_util_desired.get(T, 1)
         model.Add(util_diff == teach_num[t] - util_ideal)
         if PENALTY_OVERWORK > 0:
             util_excess = model.NewIntVar(0, max_diff, "")
@@ -534,11 +559,11 @@ for s in range(len(slots)):
                 print(f"{slots[s]} in {rooms[r]} room: {courses[c]} / {'+'.join(Ts)}")
 
 print()
-print(f"Teachers' utilization (default: {util_avg}):")
+print(f"Teachers' utilization:")
 for n in range(len(slots)):
     Ts = []
-    for t in range(len(teachers)):
-        if solver.Value(teach_num[t]) == n:
-            Ts.append(teachers[t])
+    for T in teachers_active:
+        if solver.Value(teach_num[Teachers[T]]) == n:
+            Ts.append(T)
     if Ts:
         print(f"{n}: {' '.join(Ts)}")

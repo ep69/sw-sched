@@ -50,10 +50,10 @@ teachers_follow = [
 	]
 teachers_core = ["David", "Tom-S.", "Kuba-Š.", "Peťa", "Tom-K.", "Jarda", "Quique", "Martin", "Michal", "Kolin", "Kepo", "Terka", "Janča", "Ilča", "Pavli", "Silvia", "Linda", "Mária", "Soňa", "Poli"]
 teachers_external = list((set(teachers_lead) | set(teachers_follow)) - set(teachers_core))
-print(f"External teachers: {teachers_external}")
+print(f"Active external teachers: {teachers_external}")
 teachers_external_active = ["Standa", "Vojta-N.", "Kuba-B.", "Zuzka", "Míša"]
 teachers_active = teachers_core + teachers_external_active
-print(f"Active teachers: {teachers_active}")
+#print(f"Active teachers: {teachers_active}")
 
 teachers = teachers_lead + teachers_follow
 Teachers = {}
@@ -390,7 +390,7 @@ model.Add(sum(ts[(Teachers["David"],s)] for s in range(len(slots)) if s not in [
 # Kolin can teach only in the middle slot on Thursday
 model.Add(sum(ts[(Teachers["Kolin"],s)] for s in range(len(slots)) if s not in [10]) == 0)
 # Ilča must be teaching before Balboa Closed Training
-model.Add(ts[(Teachers["Ilča"],7)] == 1)
+#model.Add(ts[(Teachers["Ilča"],7)] == 1)
 
 # strict courses schedule
 # Teachers training must be at Thursday evening
@@ -402,7 +402,6 @@ model.Add(cs[Courses["Blues/Slow Open Training"]] > 2)
 for (T,D), n in td_pref.items():
     if n == 0: # T cannot teach on day D
         model.Add(td[(Teachers[T], Days[D])] == 0)
-
 
 for Cs in courses_different:
     daylist = [] # days
@@ -489,6 +488,7 @@ PENALTY_DAYPREF_BAD = 300
 PENALTY_TIMEPREF_SLIGHT = 50
 PENALTY_TIMEPREF_BAD = 200
 PENALTY_NOTWITHNEW = 5
+PENALTY_BALBOA = 1000
 
 penalties = [] # list of all penalties
 
@@ -642,6 +642,20 @@ if PENALTY_NOTWITHNEW > 0:
         penalties_notwithnew.append(tnwe)
     penalties.append(sum(penalties_notwithnew) * PENALTY_NOTWITHNEW)
 
+if PENALTY_BALBOA > 0:
+    # at least one balboa course should precede Balboa Closed Training (slot 8)
+    penalties_balboa = []
+    b1 = model.NewBoolVar("")
+    b2 = model.NewBoolVar("")
+    model.Add(cs[Courses["Balboa Beginners 2"]] == 7).OnlyEnforceIf(b1)
+    model.Add(cs[Courses["Balboa Beginners 2"]] != 7).OnlyEnforceIf(b1.Not())
+    model.Add(cs[Courses["Balboa Advanced"]] == 7).OnlyEnforceIf(b2)
+    model.Add(cs[Courses["Balboa Advanced"]] != 7).OnlyEnforceIf(b2.Not())
+    b = model.NewBoolVar("")
+    model.AddBoolOr([b1, b2]).OnlyEnforceIf(b.Not())
+    model.AddBoolAnd([b1.Not(), b2.Not()]).OnlyEnforceIf(b)
+    penalties_balboa.append(b)
+    penalties.append(sum(penalties_balboa) * PENALTY_BALBOA)
 
 model.Minimize(sum(penalties))
 
@@ -701,4 +715,5 @@ print(f"Daypref_slight: {sum([solver.Value(p) for p in penalties_daypref_slight]
 print(f"Timepref_bad: {sum([solver.Value(p) for p in penalties_timepref_bad])}")
 print(f"Timepref_slight: {sum([solver.Value(p) for p in penalties_timepref_slight])}")
 print(f"Notwithnew: {sum([solver.Value(p) for p in penalties_notwithnew])}")
+print(f"Balboa: {sum([solver.Value(p) for p in penalties_balboa])}")
 print(f"Total: {sum([solver.Value(p) for p in penalties])}")

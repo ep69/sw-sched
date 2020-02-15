@@ -126,19 +126,36 @@ t_util_desired["Silvia"] = 2
 t_util_desired["Pavli"] = 1
 
 # course C can be taught only by Ts
+teachers_lh1 = list(set(teachers_active) - set(["Peťa", "Standa", "Terka", "Pavli"]))
+teachers_lh2 = list(set(teachers_active) - set(["Peťa", "Standa", "Terka", "Linda", "Pavli"]))
+teachers_lh2_5 = list(set(teachers_core) - set(["Peťa", "Terka", "Linda", "Pavli"]))
+teachers_lh3 = list(set(teachers_core) - set(["David", "Jarda", "Peťa", "Terka", "Pavli"]))
+teachers_lh4 = list(set(teachers_core) - set(["David", "Jarda", "Peťa", "Pavli"]))
+teachers_lh5 = ["Kuba-Š.", "Kolin", "Terka", "Janča", "Mária", "Silvia", "Soňa"]
+teachers_airsteps = ["Tom-S.", "Janča"]
 teachers_shag = ["Terka", "Linda", "Kepo", "Standa"]
 teachers_balboa = ["Peťa", "Jarda", "Poli", "Pavli", "Ilča"]
-teachers_airsteps = ["Tom-S.", "Janča"]
 ct_possible = {}
-#ct_possible["Collegiate Shag 1"] = teachers_shag
-ct_possible["Collegiate Shag 2"] = teachers_shag
-#ct_possible["Balboa Beginners"] = teachers_balboa
-ct_possible["Balboa Beginners 2"] = teachers_balboa
-#ct_possible["Balboa Intermediate"] = teachers_balboa
-ct_possible["Balboa Advanced"] = teachers_balboa
-#ct_possible["Airsteps 1"] = teachers_airsteps
-ct_possible["Airsteps 2"] = teachers_airsteps
-ct_possible["Choreo Atelier - Airsteps Edition"] = teachers_airsteps
+for C in courses:
+    if C not in courses_open:
+        if C.startswith("LH 1 "):
+            ct_possible[C] = teachers_lh1
+        elif C.startswith("LH 2 "):
+            ct_possible[C] = teachers_lh2
+        elif C.startswith("LH 2.5 "):
+            ct_possible[C] = teachers_lh2_5
+        elif C.startswith("LH 3 "):
+            ct_possible[C] = teachers_lh3
+        elif C.startswith("LH 4 "):
+            ct_possible[C] = teachers_lh4
+        elif C.startswith("LH 5 "):
+            ct_possible[C] = teachers_lh5
+        elif "Airsteps" in C:
+            ct_possible[C] = teachers_airsteps
+        elif "Collegiate Shag" in C:
+            ct_possible[C] = teachers_shag
+        elif "Balboa" in C:
+            ct_possible[C] = teachers_balboa
 
 # course C takes place in room R
 cr_strict = {}

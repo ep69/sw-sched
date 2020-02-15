@@ -168,6 +168,8 @@ tc_strict = {}
 tc_strict["Standa"] = ["Collegiate Shag 2"]
 tc_strict["Jarda"] = ["Balboa Beginners 2"]
 tc_strict["Peťa"] = ["Balboa Advanced"]
+tc_strict["Ilča"] = ["Balboa Beginners 2"]
+tc_strict["Pavli"] = ["Balboa Advanced"]
 
 # teacher T1 must not teach a course with teacher T2
 tt_not_together = [
@@ -189,6 +191,8 @@ courses_different = [
 # course C1, C2, (C3) should happend on the same day in different times and follow each other
 courses_same = [
         ["Collegiate Shag 2", "Shag/Balboa Open Training"],
+        #["Balboa Beginners 2", "Balboa Closed Training"],
+        #["Balboa Advanced", "Balboa Closed Training"],
         #["Balboa Beginners 2", "Balboa Advanced", "Balboa Closed Training"],
         #("Collegiate Shag 1", "Airsteps 2"),
         ]
@@ -385,7 +389,8 @@ model.Add(ts[(Teachers["Standa"],3)] == 0)
 model.Add(sum(ts[(Teachers["David"],s)] for s in range(len(slots)) if s not in [4,7]) == 0)
 # Kolin can teach only in the middle slot on Thursday
 model.Add(sum(ts[(Teachers["Kolin"],s)] for s in range(len(slots)) if s not in [10]) == 0)
-
+# Ilča must be teaching before Balboa Closed Training
+model.Add(ts[(Teachers["Ilča"],7)] == 1)
 
 # strict courses schedule
 # Teachers training must be at Thursday evening

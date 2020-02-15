@@ -680,11 +680,11 @@ for s in range(len(slots)):
             if solver.Value(src[(s,r,c)]):
                 Ts = []
                 if courses[c] in courses_open:
-                    Ts.append("OPEN")
+                    Ts.append("OPEN\t")
                 elif courses[c] in courses_solo:
                     for t in range(len(teachers)):
                         if solver.Value(tc[(t,c)]):
-                            Ts.append(teachers[t])
+                            Ts.append(teachers[t] + "\t")
                             break
                 elif courses[c] in courses_regular:
                     for t in range(len(teachers)):
@@ -692,7 +692,7 @@ for s in range(len(slots)):
                             Ts.append(teachers[t])
                 if len(Ts) == 2 and Ts[0] in teachers_follow:
                     Ts[0], Ts[1] = Ts[1], Ts[2]
-                print(f"{slots[s]} in {rooms[r]} room: {courses[c]} / {'+'.join(Ts)}")
+                print(f"{slots[s]}\t {rooms[r]}\t{'+'.join(Ts)}\t{courses[c]}")
 
 print()
 print(f"Teachers' utilization:")

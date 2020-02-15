@@ -169,25 +169,10 @@ tc_strict["Standa"] = ["Collegiate Shag 2"]
 
 # teacher T1 must not teach a course with teacher T2
 tt_not_together = [
+        ("Kuba-Š.", "Soňa"),
         ("Michal", "Ilča"),
         ]
 
-# teacher T availability at day D:
-#   0 cannot
-#   1 barely
-#   2 fine (default)
-#   3 great
-td_pref = {}
-td_pref[("Tom-S.", "Thursday")] = 0 # acroyoga
-td_pref[("Tom-S.", "Monday")] = 3
-
-# teacher T availability at time X (0 - first slot, 1 - second slot, 2 - third slot):
-#   0 cannot
-#   1 barely
-#   2 fine (default)
-#   3 great
-ttime_pref = {}
-ttime_pref[("Standa", 1)] = 3
 
 # course Cx must happen on different day and at different time than Cy
 courses_different = [
@@ -331,9 +316,86 @@ for T1, T2 in tt_not_together:
     for c in range(len(courses)):
         model.Add(sum(tc[(t,c)] for t in [Teachers[T1], Teachers[T2]]) < 2)
 
+# Teachers' time preferences
+# TODO: find a better place for this part
+
+# teacher T availability at day D:
+#   0 cannot
+#   1 barely
+#   2 fine (default)
+#   3 great
+td_pref = {}
+td_pref[("Quique", "Monday")] = 0
+td_pref[("Quique", "Wednesday")] = 0
+td_pref[("Kuba-Š.", "Monday")] = 1
+td_pref[("Kuba-Š.", "Thursday")] = 1
+td_pref[("Martin", "Thursday")] = 0
+td_pref[("Michal", "Monday")] = 0
+td_pref[("Michal", "Tuesday")] = 1
+td_pref[("Michal", "Thursday")] = 0
+td_pref[("Tom-S.", "Monday")] = 0
+td_pref[("Tom-S.", "Thursday")] = 1
+td_pref[("Tom-K.", "Monday")] = 0
+td_pref[("Tom-K.", "Wednesday")] = 1
+td_pref[("Vojta-N.", "Monday")] = 1
+td_pref[("Vojta-N.", "Tuesday")] = 0
+td_pref[("Terka", "Monday")] = 1
+td_pref[("Terka", "Wednesday")] = 0
+td_pref[("Janča", "Monday")] = 1
+td_pref[("Linda", "Tuesday")] = 0
+td_pref[("Linda", "Wednesday")] = 0
+td_pref[("Mária", "Monday")] = 0
+td_pref[("Mária", "Thursday")] = 0
+td_pref[("Pavli", "Monday")] = 0
+td_pref[("Pavli", "Wednesday")] = 1
+td_pref[("Soňa", "Monday")] = 0
+td_pref[("Soňa", "Tuesday")] = 1
+td_pref[("Soňa", "Wednesday")] = 0
+td_pref[("Zuzka", "Monday")] = 0
+td_pref[("Míša", "Wednesday")] = 0
+td_pref[("Míša", "Thursday")] = 1
+
+#td_pref[("Tom-S.", "Thursday")] = 0 # acroyoga
+#td_pref[("Tom-S.", "Monday")] = 3
+
+# teacher T availability at time X (0 - first slot, 1 - second slot, 2 - third slot):
+#   0 cannot
+#   1 barely
+#   2 fine (default)
+#   3 great
+ttime_pref = {}
+ttime_pref[("Jarda", 2)] = 1
+ttime_pref[("Martin", 0)] = 0
+ttime_pref[("Peťa", 2)] = 0
+ttime_pref[("Tom-S.", 2)] = 1
+ttime_pref[("Linda", 2)] = 1
+ttime_pref[("Mária", 2)] = 0
+ttime_pref[("Silvia", 1)] = 0
+ttime_pref[("Silvia", 2)] = 0
+ttime_pref[("Zuzka", 0)] = 0
+ttime_pref[("Míša", 2)] = 1
+
+# strict teacher-slot constraints:
+# Standa cannot teach the first Tuesday slot
+model.Add(ts[(Teachers["Standa"],3)] == 0)
+# David can teach only in the middle slot on Tuesday (not preferred) and Wednesday (preferred)
+# TODO: particular slot preferences
+model.Add(sum(ts[(Teachers["David"],s)] for s in range(len(slots)) if s not in [4,7]) == 0)
+# Kolin can teach only in the middle slot on Thursday
+model.Add(sum(ts[(Teachers["Kolin"],s)] for s in range(len(slots)) if s not in [10]) == 0)
+
+
+# strict courses schedule
+# Teachers training must be at Thursday evening
+model.Add(cs[Courses["Teachers Training"]] == 11)
+# Balboa Training must be at Wednesday evening
+model.Add(cs[Courses["Balboa Closed Training"]] == 8)
+# Blues Training must not be on Monday
+model.Add(cs[Courses["Blues/Slow Open Training"]] > 2)
 for (T,D), n in td_pref.items():
     if n == 0: # T cannot teach on day D
         model.Add(td[(Teachers[T], Days[D])] == 0)
+
 
 for Cs in courses_different:
     daylist = [] # days
@@ -362,7 +424,16 @@ for Cs in courses_same:
         daylist.append(day)
         timelist.append(time)
     model.AddAllowedAssignments(daylist, [[d] * len(Cs) for d in range(len(days))])
-    model.AddAllDifferent(timelist)
+    if len(Cs) == len(times):
+        # filling whole day
+        model.AddAllDifferent(timelist)
+    elif len(Cs) == len(times) - 1:
+        # filling 2 out of three slots
+        assert(len(Cs) == 2)
+        model.AddAllowedAssignments(timelist, [ [0,1], [1,0], [1,2], [2,1] ])
+    else:
+        # should not happen
+        assert(False)
 
 for (C, R) in cr_strict.items():
     model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 1)
@@ -386,8 +457,6 @@ for C in courses_solo:
 # course has to take place at specific slot
 #model.Add(sum(src[(0,r,Courses["Collegiate Shag 1"])] for r in range(len(rooms))) == 1)
 
-# Standa cannot teach the first Tuesday slot
-model.Add(ts[(Teachers["Standa"],3)] == 0)
 
 # Damian
 damian = True
@@ -404,14 +473,14 @@ if damian:
 
 # OPTIMIZATION
 
-PENALTY_OVERWORK = 100 # squared
-PENALTY_UNDERWORK = 33
-PENALTY_DAYS = 1000 # squared
-PENALTY_SPLIT = 500
-PENALTY_DAYPREF_SLIGHT = 50
-PENALTY_DAYPREF_BAD = 1000
-PENALTY_TIMEPREF_SLIGHT = 50
-PENALTY_TIMEPREF_BAD = 1000
+PENALTY_OVERWORK = 101 # squared
+PENALTY_UNDERWORK = 31
+PENALTY_DAYS = 1009 # squared
+PENALTY_SPLIT = 503
+PENALTY_DAYPREF_SLIGHT = 53
+PENALTY_DAYPREF_BAD = 1013
+PENALTY_TIMEPREF_SLIGHT = 59
+PENALTY_TIMEPREF_BAD = 1019
 
 penalties = [] # list of all penalties
 
@@ -537,6 +606,7 @@ if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
                     penalties_timepref.append(sum(ts[(t,s)] for s in slots_bad) * PENALTY_TIMEPREF_BAD)
     if penalties_timepref:
         penalties.append(sum(penalties_timepref))
+
 
 model.Minimize(sum(penalties))
 

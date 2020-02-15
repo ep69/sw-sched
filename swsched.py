@@ -166,6 +166,8 @@ cr_strict["Collegiate Shag 2"] = "big"
 # teacher T must teach courses Cs
 tc_strict = {}
 tc_strict["Standa"] = ["Collegiate Shag 2"]
+tc_strict["Jarda"] = ["Balboa Beginners 2"]
+tc_strict["Peťa"] = ["Balboa Advanced"]
 
 # teacher T1 must not teach a course with teacher T2
 tt_not_together = [
@@ -182,13 +184,11 @@ courses_different = [
         ["LH 3 - Charleston 1", "LH 3 - Lindy Charleston EN"],
         ]
 
-# course C1, C2, (C3) should happend on the same day in different times
+# course C1, C2, (C3) should happend on the same day in different times and follow each other
 courses_same = [
         ["Collegiate Shag 2", "Shag/Balboa Open Training"],
-        ["Balboa Beginners 2", "Balboa Advanced", "Balboa Closed Training"],
+        #["Balboa Beginners 2", "Balboa Advanced", "Balboa Closed Training"],
         #("Collegiate Shag 1", "Airsteps 2"),
-        #("Balboa Beginners", "Shag/Balboa Open Training"),
-        #("Balboa Intermediate", "Shag/Balboa Open Training"),
         ]
 
 
@@ -473,14 +473,15 @@ if damian:
 
 # OPTIMIZATION
 
-PENALTY_OVERWORK = 101 # squared
-PENALTY_UNDERWORK = 31
-PENALTY_DAYS = 1009 # squared
-PENALTY_SPLIT = 503
-PENALTY_DAYPREF_SLIGHT = 53
-PENALTY_DAYPREF_BAD = 1013
-PENALTY_TIMEPREF_SLIGHT = 59
-PENALTY_TIMEPREF_BAD = 1019
+PENALTY_OVERWORK = 100 # squared
+PENALTY_UNDERWORK = 50
+PENALTY_DAYS = 300 # squared
+PENALTY_SPLIT = 300
+PENALTY_DAYPREF_SLIGHT = 50
+PENALTY_DAYPREF_BAD = 300
+PENALTY_TIMEPREF_SLIGHT = 50
+PENALTY_TIMEPREF_BAD = 200
+PENALTY_NOTWITHNEW = 20 # TODO
 
 penalties = [] # list of all penalties
 
@@ -563,7 +564,8 @@ if PENALTY_SPLIT > 0:
 
 if PENALTY_DAYPREF_SLIGHT > 0 or PENALTY_DAYPREF_BAD > 0:
     # day preferences
-    penalties_daypref = []
+    penalties_daypref_slight = []
+    penalties_daypref_bad = []
     for T in teachers:
         t = Teachers[T]
         prefs = []
@@ -574,18 +576,19 @@ if PENALTY_DAYPREF_SLIGHT > 0 or PENALTY_DAYPREF_BAD > 0:
                 if set([2,3]) <= set(prefs):
                     # days that are slightly less preferred
                     days_slight_worse = [d for d in range(len(prefs)) if prefs[d] == 2]
-                    penalties_daypref.append(sum(td[(t,d)] for d in days_slight_worse) * PENALTY_DAYPREF_SLIGHT)
+                    penalties_daypref_slight.append(sum(td[(t,d)] for d in days_slight_worse))
             if PENALTY_DAYPREF_BAD > 0:
                 if 1 in set(prefs):
                     # not preferred days
                     days_bad = [d for d in range(len(prefs)) if prefs[d] == 1]
-                    penalties_daypref.append(sum(td[(t,d)] for d in days_bad) * PENALTY_DAYPREF_BAD)
-    if penalties_daypref:
-        penalties.append(sum(penalties_daypref))
+                    penalties_daypref_bad.append(sum(td[(t,d)] for d in days_bad))
+    penalties.append(sum(penalties_daypref_slight)*PENALTY_DAYPREF_SLIGHT)
+    penalties.append(sum(penalties_daypref_bad)*PENALTY_DAYPREF_BAD)
 
 if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
     # time preferences
-    penalties_timepref = []
+    penalties_timepref_slight = []
+    penalties_timepref_bad = []
     for T in teachers:
         t = Teachers[T]
         prefs = []
@@ -597,15 +600,15 @@ if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
                     # times that are slightly less preferred
                     times_slight_worse = [time for time in range(len(prefs)) if prefs[time] == 2]
                     slots_slight_worse = [d*len(times)+time for time in times_slight_worse for d in range(len(days))]
-                    penalties_timepref.append(sum(ts[(t,s)] for s in slots_slight_worse) * PENALTY_TIMEPREF_SLIGHT)
+                    penalties_timepref_slight.append(sum(ts[(t,s)] for s in slots_slight_worse) * PENALTY_TIMEPREF_SLIGHT)
             if PENALTY_TIMEPREF_BAD > 0:
                 if 1 in set(prefs):
                     # not preferred times
                     times_bad = [time for time in range(len(prefs)) if prefs[time] == 1]
                     slots_bad = [d*len(times)+time for time in times_bad for d in range(len(days))]
-                    penalties_timepref.append(sum(ts[(t,s)] for s in slots_bad) * PENALTY_TIMEPREF_BAD)
-    if penalties_timepref:
-        penalties.append(sum(penalties_timepref))
+                    penalties_timepref_bad.append(sum(ts[(t,s)] for s in slots_bad) * PENALTY_TIMEPREF_BAD)
+    penalties.append(sum(penalties_timepref_slight) * PENALTY_TIMEPREF_SLIGHT)
+    penalties.append(sum(penalties_timepref_bad) * PENALTY_TIMEPREF_BAD)
 
 
 model.Minimize(sum(penalties))
@@ -654,3 +657,16 @@ for n in range(len(slots)):
             Ts.append(T)
     if Ts:
         print(f"{n}: {' '.join(Ts)}")
+
+print()
+print("Penalties:")
+print(f"Overwork: {sum([solver.Value(p) for p in penalties_overwork])}")
+print(f"Underwork: {sum([solver.Value(p) for p in penalties_underwork])}")
+print(f"Days: {sum([solver.Value(p) for p in penalties_days])}")
+print(f"Split: {sum([solver.Value(p) for p in penalties_split])}")
+print(f"Daypref_bad: {sum([solver.Value(p) for p in penalties_daypref_bad])}")
+print(f"Daypref_slight: {sum([solver.Value(p) for p in penalties_daypref_slight])}")
+print(f"Timepref_bad: {sum([solver.Value(p) for p in penalties_timepref_bad])}")
+print(f"Timepref_slight: {sum([solver.Value(p) for p in penalties_timepref_slight])}")
+print(f"Total: {sum([solver.Value(p) for p in penalties])}")
+# TODO PENALTY_NOTWITHNEW = 29 # TODO

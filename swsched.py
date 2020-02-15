@@ -175,6 +175,8 @@ tt_not_together = [
         ("Michal", "Ilča"),
         ]
 
+# teacher T wants to teach with external teacher
+t_withnew = ["Mária", "Janča", "Kuba-Š.", "Tom-S."]
 
 # course Cx must happen on different day and at different time than Cy
 courses_different = [
@@ -481,7 +483,7 @@ PENALTY_DAYPREF_SLIGHT = 50
 PENALTY_DAYPREF_BAD = 300
 PENALTY_TIMEPREF_SLIGHT = 50
 PENALTY_TIMEPREF_BAD = 200
-PENALTY_NOTWITHNEW = 20 # TODO
+PENALTY_NOTWITHNEW = 5
 
 penalties = [] # list of all penalties
 
@@ -610,6 +612,31 @@ if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
     penalties.append(sum(penalties_timepref_slight) * PENALTY_TIMEPREF_SLIGHT)
     penalties.append(sum(penalties_timepref_bad) * PENALTY_TIMEPREF_BAD)
 
+if PENALTY_NOTWITHNEW > 0:
+    ce = []
+    for C in courses_regular:
+        c = Courses[C]
+        # true if there is an external teacher in course c
+        e = model.NewBoolVar("")
+        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_external_active) > 0).OnlyEnforceIf(e)
+        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_external_active) == 0).OnlyEnforceIf(e.Not())
+        ce.append(e)
+    penalties_notwithnew = []
+    for T in t_withnew:
+        t = Teachers[T]
+        twe = []
+        for C in courses_regular:
+            c = Courses[C]
+            with_external = model.NewBoolVar("")
+            model.AddBoolAnd([tc[(t,c)], ce[c]]).OnlyEnforceIf(with_external)
+            model.AddBoolOr([tc[(t,c)].Not(), ce[c].Not()]).OnlyEnforceIf(with_external.Not())
+            twe.append(with_external)
+        tnwe = model.NewBoolVar("")
+        model.Add(sum(twe) == 0).OnlyEnforceIf(tnwe)
+        model.Add(sum(twe) >= 1).OnlyEnforceIf(tnwe.Not())
+        penalties_notwithnew.append(tnwe)
+    penalties.append(sum(penalties_notwithnew) * PENALTY_NOTWITHNEW)
+
 
 model.Minimize(sum(penalties))
 
@@ -668,5 +695,5 @@ print(f"Daypref_bad: {sum([solver.Value(p) for p in penalties_daypref_bad])}")
 print(f"Daypref_slight: {sum([solver.Value(p) for p in penalties_daypref_slight])}")
 print(f"Timepref_bad: {sum([solver.Value(p) for p in penalties_timepref_bad])}")
 print(f"Timepref_slight: {sum([solver.Value(p) for p in penalties_timepref_slight])}")
+print(f"Notwithnew: {sum([solver.Value(p) for p in penalties_notwithnew])}")
 print(f"Total: {sum([solver.Value(p) for p in penalties])}")
-# TODO PENALTY_NOTWITHNEW = 29 # TODO

@@ -10,10 +10,15 @@ for i, D in enumerate(days):
 times = ["17:30-18:40", "18:45-19:55", "20:00-21:10"]
 slots = [ d + " " + t for d in days for t in times ]
 
-rooms = ["big", "small"]
+rooms = ["big", "small", "koli"]
 Rooms = {}
 for i, R in enumerate(rooms):
     Rooms[R] = i
+
+venues = ["studio", "koliste"]
+Venues = {}
+for i, V in enumerate(venues):
+    Venues[V] = i
 
 # name, active?, role, community
 TEACHERS = [
@@ -65,6 +70,12 @@ assert(len(set(teachers_core) & set(teachers_community)) == 0)
 Teachers = {}
 for (i, t) in enumerate(teachers):
     Teachers[t] = i
+
+rooms_venues = {
+    "small": "studio",
+    "big": "studio",
+    "koli": "koliste",
+    }
 
 courses_open = [
         "Shag/Balboa Open Training",
@@ -194,12 +205,16 @@ courses_different = [
         ["LH 3 - Charleston 1", "LH 3 - Lindy Charleston EN"],
         ]
 
-# course C1, C2, (C3) should happend on the same day in different times and follow each other
+# course C1, C2, (C3) should happen
+#  * on the same day
+#  * in different times
+#  * following each other
+#  * in the same venue # TODO
 courses_same = [
         ["Collegiate Shag 2", "Shag/Balboa Open Training"],
         #["Balboa Beginners 2", "Balboa Closed Training"],
         #["Balboa Advanced", "Balboa Closed Training"],
-        #["Balboa Beginners 2", "Balboa Advanced", "Balboa Closed Training"],
+        ["Balboa Beginners 2", "Balboa Advanced", "Balboa Closed Training"],
         #("Collegiate Shag 1", "Airsteps 2"),
         ]
 
@@ -235,12 +250,31 @@ td = {}
 for d in range(len(days)):
     for t in range(len(teachers)):
         td[(t,d)] = model.NewBoolVar("TD:t%id%i" % (t,d))
-cs = []
 # course C takes place in slot S
+cs = []
 for c in range(len(courses)):
     cs.append(model.NewIntVar(0, len(slots)-1, ""))
+# room R is in venue V
+rv = []
+for r in range(len(rooms)):
+    rv.append(model.NewIntVar(0, len(venues)-1, ""))
+    model.Add(rv[r] == Venues[rooms_venues[rooms[r]]])
+# teacher T teaches in slot S course C in venue V
+tscv = {}
+for t in range(len(teachers)):
+    for s in range(len(slots)):
+        for c in range(len(courses)):
+            for v in range(len(venues)):
+                tscv[(t,s,c,v)] = model.NewBoolVar("")
 
-# teacher T teaches in slot S course C iff course C takes place at slot S and is taught by teacher T
+# teacher T teaches in venue V on day D
+tdv = {}
+for t in range(len(teachers)):
+    for d in range(len(days)):
+        for v in range(len(venues)):
+            tdv[(t,d,v)] = model.NewBoolVar("")
+
+# teacher T teaches course C in slot S iff course C takes place at slot S and is taught by teacher T
 # inferring CTS info
 for s in range(len(slots)):
     for c in range(len(courses)):
@@ -261,6 +295,32 @@ for d in range(len(days)):
     for t in range(len(teachers)):
         model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) >= 1).OnlyEnforceIf(td[(t,d)])
         model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) == 0).OnlyEnforceIf(td[(t,d)].Not())
+
+# inferring TDV info
+for s in range(len(slots)):
+    for c in range(len(courses)):
+        for v in range(len(venues)):
+            hit = model.NewBoolVar("") # course C is at slot S in venue V
+            model.Add(sum(src[(s,r,c)] for r in range(len(rooms)) if rooms_venues[rooms[r]] == venues[v]) == 1).OnlyEnforceIf(hit)
+            model.Add(sum(src[(s,r,c)] for r in range(len(rooms)) if rooms_venues[rooms[r]] == venues[v]) == 0).OnlyEnforceIf(hit.Not())
+            for t in range(len(teachers)):
+                model.AddBoolAnd([hit, tc[(t,c)]]).OnlyEnforceIf(tscv[(t,s,c,v)])
+                model.AddBoolOr([hit.Not(), tc[(t,c)].Not()]).OnlyEnforceIf(tscv[(t,s,c,v)].Not())
+for t in range(len(teachers)):
+    for d in range(len(days)):
+        for v in range(len(venues)):
+            model.Add(sum(tscv[(t,s,c,v)] for s in range(d*len(times),(d+1)*len(times)) for c in range(len(courses))) >= 1).OnlyEnforceIf(tdv[(t,d,v)])
+            model.Add(sum(tscv[(t,s,c,v)] for s in range(d*len(times),(d+1)*len(times)) for c in range(len(courses))) == 0).OnlyEnforceIf(tdv[(t,d,v)].Not())
+# inferring CV info
+cv = []
+for c in range(len(courses)):
+    cv.append(model.NewIntVar(0, len(venues)-1, ""))
+    for v in range(len(venues)):
+        hit = model.NewBoolVar("")
+        model.Add(sum(src[(s,r,c)] for s in range(len(slots)) for r in range(len(rooms)) if rooms_venues[rooms[r]] == venues[v]) >= 1).OnlyEnforceIf(hit)
+        model.Add(sum(src[(s,r,c)] for s in range(len(slots)) for r in range(len(rooms)) if rooms_venues[rooms[r]] == venues[v]) == 0).OnlyEnforceIf(hit.Not())
+        model.Add(cv[c] == v).OnlyEnforceIf(hit)
+        model.Add(cv[c] != v).OnlyEnforceIf(hit.Not())
 
 # number of lessons teacher T teaches
 teach_num = {}
@@ -322,6 +382,11 @@ for (C, Ts) in ct_possible.items():
 for T1, T2 in tt_not_together:
     for c in range(len(courses)):
         model.Add(sum(tc[(t,c)] for t in [Teachers[T1], Teachers[T2]]) < 2)
+
+# teacher T does not teach in two venues in the same day
+for t in range(len(teachers)):
+    for d in range(len(days)):
+        model.Add(sum(tdv[(t,d,v)] for v in range(len(venues))) <= 1)
 
 # Teachers' time preferences
 # TODO: find a better place for this part
@@ -404,6 +469,8 @@ for (T,D), n in td_pref.items():
     if n == 0: # T cannot teach on day D
         model.Add(td[(Teachers[T], Days[D])] == 0)
 
+# same courses should not happen in same days and also not in same times
+# it should probably not be a strict limitation, but it is much easier to write
 for Cs in courses_different:
     daylist = [] # days
     timelist = [] # times
@@ -418,20 +485,24 @@ for Cs in courses_different:
     model.AddAllDifferent(daylist)
     model.AddAllDifferent(timelist)
 
-# same courses should not happen in same days and also not in same times
-# it should probably not be a strict limitation, but it is much easier to write
+# courses that should follow each other in the same day in the same venue
 for Cs in courses_same:
     daylist = [] # days
     timelist = [] # times
+    venuelist = [] # venues
     assert(2 <= len(Cs) <= len(times))
     for C in Cs:
         day = model.NewIntVar(0, len(days)-1, "")
         time = model.NewIntVar(0, len(times)-1, "")
+        venue = model.NewIntVar(0, len(venues)-1, "")
         model.AddDivisionEquality(day, cs[Courses[C]], len(times))
         model.AddModuloEquality(time, cs[Courses[C]], len(times))
+        model.Add(venue == cv[Courses[C]])
         daylist.append(day)
         timelist.append(time)
+        venuelist.append(venue)
     model.AddAllowedAssignments(daylist, [[d] * len(Cs) for d in range(len(days))])
+    model.AddAllowedAssignments(venuelist, [[v] * len(Cs) for v in range(len(venues))])
     if len(Cs) == len(times):
         # filling whole day
         model.AddAllDifferent(timelist)

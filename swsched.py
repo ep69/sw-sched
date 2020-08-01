@@ -15,47 +15,53 @@ Rooms = {}
 for i, R in enumerate(rooms):
     Rooms[R] = i
 
-teachers_lead = [
-        "David",
-        "Tom-S.",
-        "Kuba-Š.",
-        "Peťa",
-        "Tom-K.",
-        "Jarda",
-        "Quique",
-        "Maťo",
-        "Martin",
-        "Michal",
-        "Vojta-S.",
-        "Standa",
-        "Kolin",
-        "Kepo",
-        "Vojta-N.",
-        "Kuba-B.",
-        ]
-teachers_follow = [
-        "Terka",
-        "Janča",
-        "Ilča",
-        "Pavli",
-        "Bláža",
-        "Silvia",
-        "Ivča",
-        "Linda",
-        "Mária",
-        "Poli",
-        "Míša",
-        "Zuzka",
-        "Soňa",
-	]
-teachers_core = ["David", "Tom-S.", "Kuba-Š.", "Peťa", "Tom-K.", "Jarda", "Quique", "Martin", "Michal", "Kolin", "Kepo", "Terka", "Janča", "Ilča", "Pavli", "Silvia", "Linda", "Mária", "Soňa", "Poli"]
-teachers_external = list((set(teachers_lead) | set(teachers_follow)) - set(teachers_core))
-print(f"Active external teachers: {teachers_external}")
-teachers_external_active = ["Standa", "Vojta-N.", "Kuba-B.", "Zuzka", "Míša"]
-teachers_active = teachers_core + teachers_external_active
-#print(f"Active teachers: {teachers_active}")
+# name, active?, role, community
+TEACHERS = [
+    ("David", True, "lead", False),
+    ("Tom-S.", True, "lead", False),
+    ("Kuba-Š.", True, "lead", False),
+    ("Peťa", True, "lead", False),
+    ("Tom-K.", True, "lead", False),
+    ("Jarda", True, "lead", False),
+    ("Quique", True, "lead", False),
+    ("Maťo", False, "lead", True),
+    ("Martin", True, "lead", False),
+    ("Michal", True, "lead", False),
+    ("Vojta-S.", False, "lead", True),
+    ("Standa", True, "lead", True),
+    ("Kolin", True, "lead", False),
+    ("Kepo", True, "lead", False),
+    ("Vojta-N.", True, "lead", True),
+    ("Kuba-B.", True, "lead", True),
+    ("Terka", True, "follow", False),
+    ("Janča", True, "follow", False),
+    ("Ilča", True, "follow", False),
+    ("Pavli", True, "follow", False),
+    ("Bláža", False, "follow", True),
+    ("Silvia", True, "follow", False),
+    ("Ivča", False, "follow", True),
+    ("Linda", True, "follow", False),
+    ("Mária", True, "follow", False),
+    ("Poli", True, "follow", False),
+    ("Míša", True, "follow", True),
+    ("Zuzka", True, "follow", True),
+    ("Soňa", True, "follow", False),
+    ("Marie", False, "follow", False),
+    ]
+TEACHERS = [t for t in TEACHERS if t[1]] # forget inactive teachers
 
-teachers = teachers_lead + teachers_follow
+teachers = [t[0] for t in TEACHERS if t[1]] # all active teachers
+teachers_lead = [t[0] for t in TEACHERS if t[2] == "lead"]
+teachers_follow = [t[0] for t in TEACHERS if t[2] == "follow"]
+assert(set(teachers) == set(teachers_lead + teachers_follow))
+assert(len(set(teachers_lead) & set(teachers_follow)) == 0)
+teachers_core = [t[0] for t in TEACHERS if not t[3]]
+teachers_community = [t[0] for t in TEACHERS if t[3]]
+print(f"Core teachers: {teachers_core}")
+print(f"Community teachers: {teachers_community}")
+assert(set(teachers) == set(teachers_core + teachers_community))
+assert(len(set(teachers_core) & set(teachers_community)) == 0)
+
 Teachers = {}
 for (i, t) in enumerate(teachers):
     Teachers[t] = i
@@ -126,8 +132,8 @@ t_util_desired["Silvia"] = 2
 t_util_desired["Pavli"] = 1
 
 # course C can be taught only by Ts
-teachers_lh1 = list(set(teachers_active) - set(["Peťa", "Standa", "Terka", "Pavli"]))
-teachers_lh2 = list(set(teachers_active) - set(["Peťa", "Standa", "Terka", "Linda", "Pavli"]))
+teachers_lh1 = list(set(teachers) - set(["Peťa", "Standa", "Terka", "Pavli"]))
+teachers_lh2 = list(set(teachers) - set(["Peťa", "Standa", "Terka", "Linda", "Pavli"]))
 teachers_lh2_5 = list(set(teachers_core) - set(["Peťa", "Terka", "Linda", "Pavli"]))
 teachers_lh3 = list(set(teachers_core) - set(["David", "Jarda", "Peťa", "Terka", "Pavli"]))
 teachers_lh4 = list(set(teachers_core) - set(["David", "Jarda", "Peťa", "Pavli"]))
@@ -177,10 +183,10 @@ tt_not_together = [
         ("Michal", "Ilča"),
         ]
 
-# teacher T wants to teach with external teacher
+# teacher T wants to teach with community teacher
 t_withnew = ["Mária", "Janča", "Kuba-Š.", "Tom-S."]
 
-# course Cx must happen on different day and at different time than Cy
+# course Cx must happen on different day and at different time than Cy (and Cz)
 courses_different = [
         ["LH 1 - Beginners /1", "LH 1 - Beginners /2", "LH 1 - Beginners EN"],
         ["LH 2 - Party Moves /1", "LH 2 - Party Moves /2"],
@@ -292,11 +298,6 @@ for c in range(len(courses)):
 
 for (T, n) in t_util_desired.items():
     model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) <= n)
-
-# only active teachers teach
-for t in range(len(teachers)):
-    if teachers[t] not in teachers_active:
-        model.Add(sum(tc[(t,c)] for c in range(len(courses))) == 0)
 
 if tc_strict:
     strict_assignments = []
@@ -417,6 +418,7 @@ for Cs in courses_different:
     model.AddAllDifferent(daylist)
     model.AddAllDifferent(timelist)
 
+# same courses should not happen in same days and also not in same times
 # it should probably not be a strict limitation, but it is much easier to write
 for Cs in courses_same:
     daylist = [] # days
@@ -444,15 +446,15 @@ for Cs in courses_same:
 for (C, R) in cr_strict.items():
     model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 1)
 
-# external teachers must teach exactly 1 course
-for T in teachers_external_active:
+# community teachers must teach exactly 1 course
+for T in teachers_community:
     model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) == 1)
-# external teachers must teach together with core teachers
+# community teachers must teach together with core teachers
 for C in courses_regular:
-    model.Add(sum(tc[(Teachers[T],Courses[C])] for T in teachers_external) <= 1)
-# external teachers cannot teach solo courses
+    model.Add(sum(tc[(Teachers[T],Courses[C])] for T in teachers_community) <= 1)
+# community teachers cannot teach solo courses
 for C in courses_solo:
-    model.Add(sum(tc[(Teachers[T],Courses[C])] for T in teachers_external) == 0)
+    model.Add(sum(tc[(Teachers[T],Courses[C])] for T in teachers_community) == 0)
 
 
 # Rather specific constraints:
@@ -621,10 +623,10 @@ if PENALTY_NOTWITHNEW > 0:
     ce = []
     for C in courses_regular:
         c = Courses[C]
-        # true if there is an external teacher in course c
+        # true if there is an community teacher in course c
         e = model.NewBoolVar("")
-        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_external_active) > 0).OnlyEnforceIf(e)
-        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_external_active) == 0).OnlyEnforceIf(e.Not())
+        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_community) > 0).OnlyEnforceIf(e)
+        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_community) == 0).OnlyEnforceIf(e.Not())
         ce.append(e)
     penalties_notwithnew = []
     for T in t_withnew:
@@ -632,10 +634,10 @@ if PENALTY_NOTWITHNEW > 0:
         twe = []
         for C in courses_regular:
             c = Courses[C]
-            with_external = model.NewBoolVar("")
-            model.AddBoolAnd([tc[(t,c)], ce[c]]).OnlyEnforceIf(with_external)
-            model.AddBoolOr([tc[(t,c)].Not(), ce[c].Not()]).OnlyEnforceIf(with_external.Not())
-            twe.append(with_external)
+            with_community = model.NewBoolVar("")
+            model.AddBoolAnd([tc[(t,c)], ce[c]]).OnlyEnforceIf(with_community)
+            model.AddBoolOr([tc[(t,c)].Not(), ce[c].Not()]).OnlyEnforceIf(with_community.Not())
+            twe.append(with_community)
         tnwe = model.NewBoolVar("")
         model.Add(sum(twe) == 0).OnlyEnforceIf(tnwe)
         model.Add(sum(twe) >= 1).OnlyEnforceIf(tnwe.Not())
@@ -698,7 +700,7 @@ print()
 print(f"Teachers' utilization:")
 for n in range(len(slots)):
     Ts = []
-    for T in teachers_active:
+    for T in teachers:
         if solver.Value(teach_num[Teachers[T]]) == n:
             Ts.append(T)
     if Ts:

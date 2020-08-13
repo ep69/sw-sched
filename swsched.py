@@ -10,12 +10,12 @@ for i, D in enumerate(days):
 times = ["17:30-18:40", "18:45-19:55", "20:00-21:10"]
 slots = [ d + " " + t for d in days for t in times ]
 
-rooms = ["big", "small", "koli"]
+rooms = ["big", "small", "koli-1", "koli-2"]
 Rooms = {}
 for i, R in enumerate(rooms):
     Rooms[R] = i
 
-venues = ["studio", "koliste"]
+venues = ["mosilana", "koliste"]
 Venues = {}
 for i, V in enumerate(venues):
     Venues[V] = i
@@ -72,9 +72,10 @@ for (i, t) in enumerate(teachers):
     Teachers[t] = i
 
 rooms_venues = {
-    "small": "studio",
-    "big": "studio",
-    "koli": "koliste",
+    "small": "mosilana",
+    "big": "mosilana",
+    "koli-1": "koliste",
+    "koli-2": "koliste",
     }
 
 courses_open = [
@@ -599,7 +600,7 @@ if PENALTY_OVERWORK > 0 or PENALTY_UNDERWORK > 0:
     penalties.append(sum(penalties_overwork) * PENALTY_OVERWORK + sum(penalties_underwork) * PENALTY_UNDERWORK)
 
 if PENALTY_DAYS > 0:
-    # nobody should come to studio more days then necessary
+    # nobody should come more days then necessary
     penalties_days = []
     for t in range(len(teachers)):
         teaches_days = model.NewIntVar(0, len(days), "TD:%i" % t)

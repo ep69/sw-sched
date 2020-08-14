@@ -22,36 +22,40 @@ for i, V in enumerate(venues):
 
 # name, active?, role, community
 TEACHERS = [
-    ("David", True, "lead", False),
+    ("David", False, "lead", False),
     ("Tom-S.", True, "lead", False),
     ("Kuba-Š.", True, "lead", False),
     ("Peťa", True, "lead", False),
     ("Tom-K.", True, "lead", False),
-    ("Jarda", True, "lead", False),
-    ("Quique", True, "lead", False),
-    ("Maťo", False, "lead", True),
-    ("Martin", True, "lead", False),
+    ("Jarin", True, "lead", False),
+    ("Quique", False, "lead", False),
+    ("Maťo", True, "lead", True),
+    ("Martin", False, "lead", False),
     ("Michal", True, "lead", False),
     ("Vojta-S.", False, "lead", True),
-    ("Standa", True, "lead", True),
-    ("Kolin", True, "lead", False),
+    ("Standa", True, "lead", False),
+    ("Kolin", False, "lead", False),
     ("Kepo", True, "lead", False),
     ("Vojta-N.", True, "lead", True),
     ("Kuba-B.", True, "lead", True),
+    ("Zbyňa", False, "lead", False),
+    ("Radek-Š.", True, "lead", False),
+    #("FANTOMAS", True, "lead", False), # TODO
     ("Terka", True, "follow", False),
     ("Janča", True, "follow", False),
     ("Ilča", True, "follow", False),
     ("Pavli", True, "follow", False),
-    ("Bláža", False, "follow", True),
-    ("Silvia", True, "follow", False),
-    ("Ivča", False, "follow", True),
+    ("Poli", False, "follow", False),
     ("Linda", True, "follow", False),
     ("Mária", True, "follow", False),
-    ("Poli", True, "follow", False),
+    ("Silvia", True, "follow", False),
+    ("Bláža", False, "follow", True),
+    ("Ivča", True, "follow", True),
     ("Míša", True, "follow", True),
     ("Zuzka", True, "follow", True),
-    ("Soňa", True, "follow", False),
+    ("Soňa", False, "follow", False),
     ("Marie", False, "follow", False),
+    ("Pavla-Š.", True, "follow", False),
     ]
 TEACHERS = [t for t in TEACHERS if t[1]] # forget inactive teachers
 
@@ -79,35 +83,42 @@ rooms_venues = {
     }
 
 courses_open = [
-        "Shag/Balboa Open Training",
-        "Lindy/Charleston Open Training",
-        "Teachers Training",
-        "Blues/Slow Open Training",
-        "Balboa Closed Training",
-        ]
+    "Shag/Balboa Open Training",
+    "Lindy/Charleston Open Training",
+    "Teachers' Training",
+    "Blues/Slow Open Training",
+    "Balboa Closed Training",
+    ]
 courses_solo = [
-        ]
+    "Solo",
+    ]
 courses_regular = [
-        "LH 1 - Beginners /1",
-        "LH 1 - Beginners /2",
-        "LH 1 - Beginners EN",
-        "LH 2 - Survival Guide",
-        "LH 2 - Party Moves /1",
-        "LH 2 - Party Moves /2",
-        "LH 2.5 - Swing-out /1",
-        "LH 2.5 - Swing-out /2",
-        "LH 3 - Charleston 1",
-        "LH 3 - Lindy Charleston EN",
-        "LH 3 - Musicality",
-        "LH 4 - Moves and Their Technique",
-        "LH 4 - Swing-out Clinic",
-        "LH 5 - Topic-less",
-        "Balboa Beginners 2",
-        "Balboa Advanced",
-        "Airsteps 2",
-        "Choreo Atelier - Airsteps Edition",
-        "Collegiate Shag 2",
-        ]
+    "LH 1 - Beginners /1",
+    "LH 1 - Beginners /2",
+    "LH 1 - Beginners /3", #?
+    "LH 2 - TODO /1",
+    "LH 2 - TODO /2",
+    "LH 2.5 - Swing-out /1",
+    "LH 2.5 - Swing-out /2",
+    "LH 3 - TODO /1",
+    "LH 3 - TODO /2",
+    "LH 3 - TODO /3",
+    "LH 4 - TODO /1",
+    "LH 4 - TODO /2",
+    "LH 5 - TODO",
+    "Balboa 1",
+    "Balboa 2",
+    "SlowBal",
+    "Airsteps TODO",
+    "Collegiate Shag 1",
+    "Collegiate Shag 2",
+    "Saint Louis Shag",
+    "Blues",
+    "Lindy 45",
+    "Solo 45",
+    "PJ Group /1",
+    "PJ Group /2",
+    ]
 courses = courses_regular + courses_solo + courses_open
 Courses = {}
 for (i, c) in enumerate(courses):
@@ -120,39 +131,36 @@ for (i, c) in enumerate(courses):
 #   should teach minimum N-1 courses
 # default is optimization for average utilization - maximum is not strict in this case
 t_util_desired = {}
-# people not available
-t_util_desired["Kepo"] = 0
-t_util_desired["Poli"] = 0
 # leads' desires
-t_util_desired["David"] = 1
-t_util_desired["Kolin"] = 1
-t_util_desired["Quique"] = 1
-t_util_desired["Jarda"] = 2
-t_util_desired["Kuba-Š."] = 4
-t_util_desired["Martin"] = 1
 t_util_desired["Michal"] = 2
+t_util_desired["Jarin"] = 2
+t_util_desired["Kuba-Š."] = 6 # 3 # TODO
 t_util_desired["Peťa"] = 1
-t_util_desired["Tom-S."] = 3
+t_util_desired["Tom-S."] = 2
 t_util_desired["Tom-K."] = 1
+t_util_desired["Kepo"] = 6 # wanted 2-4 plus 2 for PJ Group
+t_util_desired["Radek-Š."] = 2
 # follows' desires
-t_util_desired["Ilča"] = 5
 t_util_desired["Terka"] = 3
-t_util_desired["Janča"] = 6
+t_util_desired["Janča"] = 8 # wanted 4-6 plus 2 for PJ Group
+t_util_desired["Ilča"] = 6
+t_util_desired["Pavli"] = 2
 t_util_desired["Linda"] = 2
-t_util_desired["Mária"] = 2
+t_util_desired["Mária"] = 1
 t_util_desired["Silvia"] = 2
-t_util_desired["Pavli"] = 1
+t_util_desired["Pavla-Š."] = 2
 
 # course C can be taught only by Ts
-teachers_lh1 = list(set(teachers) - set(["Peťa", "Standa", "Terka", "Pavli"]))
-teachers_lh2 = list(set(teachers) - set(["Peťa", "Standa", "Terka", "Linda", "Pavli"]))
-teachers_lh2_5 = list(set(teachers_core) - set(["Peťa", "Terka", "Linda", "Pavli"]))
-teachers_lh3 = list(set(teachers_core) - set(["David", "Jarda", "Peťa", "Terka", "Pavli"]))
-teachers_lh4 = list(set(teachers_core) - set(["David", "Jarda", "Peťa", "Pavli"]))
-teachers_lh5 = ["Kuba-Š.", "Kolin", "Terka", "Janča", "Mária", "Silvia", "Soňa"]
+teachers_lh1 = list(set(teachers) - set(["Tom-S.", "Standa", "Terka", "Pavli"]))
+teachers_lh2 = list(set(teachers) - set(["Peťa", "Standa", "Pavli"]))
+teachers_lh2_5 = list(set(teachers) - set(["Peťa", "Standa", "Pavli", "Zuzka"]))
+teachers_lh3 = list(set(teachers) - set(["Peťa", "Standa", "Pavli", "Zuzka"]))
+teachers_lh4 = list(set(teachers_core) - set(["Peťa", "Standa"]))
+teachers_lh5 = ["Kuba-Š.", "Ilča"]
 teachers_airsteps = ["Tom-S.", "Janča"]
-teachers_shag = ["Terka", "Linda", "Kepo", "Standa"]
-teachers_balboa = ["Peťa", "Jarda", "Poli", "Pavli", "Ilča"]
+teachers_shag = ["Terka", "Linda", "Standa"]
+teachers_sls = ["Terka", "Janča", "Maťo"]
+teachers_balboa = ["Peťa", "Jarin", "Kuba-Š.", "Pavli", "Ilča"]
 ct_possible = {}
 for C in courses:
     if C not in courses_open:
@@ -172,39 +180,53 @@ for C in courses:
             ct_possible[C] = teachers_airsteps
         elif "Collegiate Shag" in C:
             ct_possible[C] = teachers_shag
+        elif "Saint Louis Shag" in C:
+            ct_possible[C] = teachers_sls
         elif "Balboa" in C:
             ct_possible[C] = teachers_balboa
+ct_possible["Lindy 45"] = ["Jarin", "Ivča"]
 
-# course C takes place in room R
-cr_strict = {}
-cr_strict["Airsteps 2"] = "big"
-#cr_strict["Collegiate Shag 1"] = "big"
-cr_strict["Collegiate Shag 2"] = "big"
+# course C must not take place in room R
+cr_not = {}
+cr_not["Airsteps TODO"] = "small"
+cr_not["Collegiate Shag 1"] = "small"
+cr_not["Collegiate Shag 2"] = "small"
 
 # teacher T must teach courses Cs
 tc_strict = {}
-tc_strict["Standa"] = ["Collegiate Shag 2"]
-tc_strict["Jarda"] = ["Balboa Beginners 2"]
-tc_strict["Peťa"] = ["Balboa Advanced"]
-tc_strict["Ilča"] = ["Balboa Beginners 2"]
-tc_strict["Pavli"] = ["Balboa Advanced"]
+tc_strict["Kuba-Š."] = ["LH 2 - TODO /1", "LH 5 - TODO"]
+tc_strict["Tom-K."] = ["Blues"]
+tc_strict["Jarin"] = ["SlowBal", "Lindy 45"]
+tc_strict["Kepo"] = ["Solo", "PJ Group /1", "PJ Group /2"]
+tc_strict["Janča"] = ["PJ Group /1", "PJ Group /2"]
+tc_strict["Pavli"] = ["SlowBal"]
+tc_strict["Ilča"] = ["Blues", "LH 5 - TODO"]
+tc_strict["Ivča"] = ["Lindy 45"]
+tc_strict["Míša"] = ["LH 2 - TODO /1"]
+tc_strict["Radek-Š."] = ["Solo 45", "LH 4 - TODO /1"] # TODO or LH3
+tc_strict["Pavla-Š."] = ["Solo 45", "LH 4 - TODO /1"] # TODO or LH3
+
 
 # teacher T1 must not teach a course with teacher T2
 tt_not_together = [
-        ("Kuba-Š.", "Soňa"),
+        #("Kuba-Š.", "Soňa"),
         ("Michal", "Ilča"),
         ]
 
 # teacher T wants to teach with community teacher
-t_withnew = ["Mária", "Janča", "Kuba-Š.", "Tom-S."]
+#t_withnew = ["Janča"]
 
 # course Cx must happen on different day and at different time than Cy (and Cz)
 courses_different = [
-        ["LH 1 - Beginners /1", "LH 1 - Beginners /2", "LH 1 - Beginners EN"],
-        ["LH 2 - Party Moves /1", "LH 2 - Party Moves /2"],
-        ["LH 2.5 - Swing-out /1", "LH 2.5 - Swing-out /2"],
-        ["LH 3 - Charleston 1", "LH 3 - Lindy Charleston EN"],
-        ]
+    #["LH 1 - Beginners /1", "LH 1 - Beginners /2", "LH 1 - Beginners /3"], # TODO
+    ["LH 1 - Beginners /1", "LH 1 - Beginners /2"],
+    ["LH 2.5 - Swing-out /1", "LH 2.5 - Swing-out /2"],
+    ]
+
+# course Cx must happen on different day time than Cy (and Cz)
+courses_diffday = [
+    ["PJ Group /1", "PJ Group /2"],
+    ]
 
 # course C1, C2, (C3) should happen
 #  * on the same day
@@ -212,12 +234,11 @@ courses_different = [
 #  * following each other
 #  * in the same venue # TODO
 courses_same = [
-        ["Collegiate Shag 2", "Shag/Balboa Open Training"],
-        #["Balboa Beginners 2", "Balboa Closed Training"],
-        #["Balboa Advanced", "Balboa Closed Training"],
-        ["Balboa Beginners 2", "Balboa Advanced", "Balboa Closed Training"],
-        #("Collegiate Shag 1", "Airsteps 2"),
-        ]
+    ["Collegiate Shag 2", "Shag/Balboa Open Training"],
+    ["Balboa 2", "Shag/Balboa Open Training"],
+    ["Balboa 1", "Balboa Closed Training"],
+    ["Balboa 2", "Balboa Closed Training"],
+    ]
 
 
 model = cp_model.CpModel()
@@ -398,38 +419,33 @@ for t in range(len(teachers)):
 #   2 fine (default)
 #   3 great
 td_pref = {}
-td_pref[("Quique", "Monday")] = 0
-td_pref[("Quique", "Wednesday")] = 0
-td_pref[("Kuba-Š.", "Monday")] = 1
-td_pref[("Kuba-Š.", "Thursday")] = 1
-td_pref[("Martin", "Thursday")] = 0
-td_pref[("Michal", "Monday")] = 0
-td_pref[("Michal", "Tuesday")] = 1
-td_pref[("Michal", "Thursday")] = 0
 td_pref[("Tom-S.", "Monday")] = 0
-td_pref[("Tom-S.", "Thursday")] = 1
-td_pref[("Tom-K.", "Monday")] = 0
-td_pref[("Tom-K.", "Wednesday")] = 1
-td_pref[("Vojta-N.", "Monday")] = 1
-td_pref[("Vojta-N.", "Tuesday")] = 0
-td_pref[("Terka", "Monday")] = 1
-td_pref[("Terka", "Wednesday")] = 0
-td_pref[("Janča", "Monday")] = 1
-td_pref[("Linda", "Tuesday")] = 0
+td_pref[("Tom-S.", "Tuesday")] = 3
+td_pref[("Tom-K.", "Tuesday")] = 0
+td_pref[("Tom-K.", "Wednesday")] = 3
+td_pref[("Tom-K.", "Thursday")] = 0
+td_pref[("Maťo", "Tuesday")] = 3
+td_pref[("Maťo", "Wednesday")] = 3
+td_pref[("Michal", "Monday")] = 0
+td_pref[("Radek-Š.", "Monday")] = 0
+td_pref[("Radek-Š.", "Wednesday")] = 0
+td_pref[("Terka", "Thursday")] = 0
+td_pref[("Janča", "Monday")] = 3
+td_pref[("Janča", "Tuesday")] = 3
+td_pref[("Janča", "Wednesday")] = 3
+td_pref[("Ilča", "Tuesday")] = 3
+td_pref[("Ilča", "Wednesday")] = 3
+td_pref[("Ilča", "Thursday")] = 3
+td_pref[("Pavli", "Tuesday")] = 0
+td_pref[("Pavli", "Wednesday")] = 3
+td_pref[("Pavli", "Thursday")] = 0
+td_pref[("Linda", "Tuesday")] = 3
 td_pref[("Linda", "Wednesday")] = 0
-td_pref[("Mária", "Monday")] = 0
-td_pref[("Mária", "Thursday")] = 0
-td_pref[("Pavli", "Monday")] = 0
-td_pref[("Pavli", "Wednesday")] = 1
-td_pref[("Soňa", "Monday")] = 0
-td_pref[("Soňa", "Tuesday")] = 1
-td_pref[("Soňa", "Wednesday")] = 0
-td_pref[("Zuzka", "Monday")] = 0
-td_pref[("Míša", "Wednesday")] = 0
-td_pref[("Míša", "Thursday")] = 1
-
-#td_pref[("Tom-S.", "Thursday")] = 0 # acroyoga
-#td_pref[("Tom-S.", "Monday")] = 3
+td_pref[("Linda", "Thursday")] = 3
+td_pref[("Zuzka", "Tuesday")] = 0
+td_pref[("Zuzka", "Thursday")] = 3
+td_pref[("Pavla-Š.", "Monday")] = 0
+td_pref[("Pavla-Š.", "Wednesday")] = 0
 
 # teacher T availability at time X (0 - first slot, 1 - second slot, 2 - third slot):
 #   0 cannot
@@ -437,35 +453,35 @@ td_pref[("Míša", "Thursday")] = 1
 #   2 fine (default)
 #   3 great
 ttime_pref = {}
-ttime_pref[("Jarda", 2)] = 1
-ttime_pref[("Martin", 0)] = 0
+ttime_pref[("Jarin", 2)] = 1
+ttime_pref[("Peťa", 0)] = 3
 ttime_pref[("Peťa", 2)] = 0
-ttime_pref[("Tom-S.", 2)] = 1
+ttime_pref[("Tom-S.", 0)] = 3
+ttime_pref[("Tom-S.", 1)] = 3
+ttime_pref[("Radek-Š.", 0)] = 0
 ttime_pref[("Linda", 2)] = 1
-ttime_pref[("Mária", 2)] = 0
-ttime_pref[("Silvia", 1)] = 0
-ttime_pref[("Silvia", 2)] = 0
+ttime_pref[("Mária", 2)] = 0 # TODO
+ttime_pref[("Silvia", 2)] = 0 # TODO
 ttime_pref[("Zuzka", 0)] = 0
-ttime_pref[("Míša", 2)] = 1
+ttime_pref[("Pavla-Š.", 0)] = 0
 
 # strict teacher-slot constraints:
 # Standa cannot teach the first Tuesday slot
 model.Add(ts[(Teachers["Standa"],3)] == 0)
-# David can teach only in the middle slot on Tuesday (not preferred) and Wednesday (preferred)
-# TODO: particular slot preferences
-model.Add(sum(ts[(Teachers["David"],s)] for s in range(len(slots)) if s not in [4,7]) == 0)
-# Kolin can teach only in the middle slot on Thursday
-model.Add(sum(ts[(Teachers["Kolin"],s)] for s in range(len(slots)) if s not in [10]) == 0)
-# Ilča must be teaching before Balboa Closed Training
-#model.Add(ts[(Teachers["Ilča"],7)] == 1)
+# Vojta-N. wants to hang out with students, so prefers NOT to teach right before Teachers' Training
+model.Add(ts[(Teachers["Vojta-N."],10)] == 0)
+# Ilča cannot teach on Wednesday evening
+model.Add(ts[(Teachers["Ilča"],8)] == 0)
+# Kuba "teaches" Teachers' Training
+model.Add(ts[(Teachers["Kuba-Š."],11)] == 0)
 
 # strict courses schedule
 # Teachers training must be at Thursday evening
-model.Add(cs[Courses["Teachers Training"]] == 11)
+model.Add(cs[Courses["Teachers' Training"]] == 11)
 # Balboa Training must be at Wednesday evening
-model.Add(cs[Courses["Balboa Closed Training"]] == 8)
+#model.Add(cs[Courses["Balboa Closed Training"]] == 8)
 # Blues Training must not be on Monday
-model.Add(cs[Courses["Blues/Slow Open Training"]] > 2)
+#model.Add(cs[Courses["Blues/Slow Open Training"]] > 2)
 for (T,D), n in td_pref.items():
     if n == 0: # T cannot teach on day D
         model.Add(td[(Teachers[T], Days[D])] == 0)
@@ -485,6 +501,17 @@ for Cs in courses_different:
         timelist.append(time)
     model.AddAllDifferent(daylist)
     model.AddAllDifferent(timelist)
+
+# courses that should not happen in same days
+for Cs in courses_diffday:
+    daylist = [] # days
+    assert(2 <= len(Cs) <= len(days))
+    for C in Cs:
+        day = model.NewIntVar(0, len(days)-1, "")
+        model.AddDivisionEquality(day, cs[Courses[C]], len(times))
+        model.AddModuloEquality(time, cs[Courses[C]], len(times))
+        daylist.append(day)
+    model.AddAllDifferent(daylist)
 
 # courses that should follow each other in the same day in the same venue
 for Cs in courses_same:
@@ -515,12 +542,15 @@ for Cs in courses_same:
         # should not happen
         assert(False)
 
-for (C, R) in cr_strict.items():
-    model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 1)
+for (C, R) in cr_not.items():
+    model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 0)
 
 # community teachers must teach exactly 1 course
 for T in teachers_community:
-    model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) == 1)
+    if T == "Maťo": # explicitly allowing him to teach two courses
+        model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) == 2)
+    else:
+        model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) == 1)
 # community teachers must teach together with core teachers
 for C in courses_regular:
     model.Add(sum(tc[(Teachers[T],Courses[C])] for T in teachers_community) <= 1)
@@ -541,8 +571,8 @@ for C in courses_solo:
 # Damian
 damian = True
 if damian:
-    for T in "Tom-K.", "Pavli":
-        model.Add(sum(tc[(Teachers[T],c)] for c in range(len(courses))) == 1)
+    model.Add(sum(tc[(Teachers["Tom-K."],c)] for c in range(len(courses))) == 1)
+    model.Add(sum(tc[(Teachers["Pavli"],c)] for c in range(len(courses))) == 2)
     damianday = model.NewIntVar(0, len(days)-1, "damianday")
     for d in range(len(days)):
         hit = model.NewBoolVar("")
@@ -550,6 +580,7 @@ if damian:
         model.Add(damianday != d).OnlyEnforceIf(hit.Not())
         model.Add(ts[(Teachers["Tom-K."],d*len(times)+0)] == 1).OnlyEnforceIf(hit)
         model.Add(ts[(Teachers["Pavli"],d*len(times)+1)] == 1).OnlyEnforceIf(hit)
+        model.Add(ts[(Teachers["Pavli"],d*len(times)+2)] == 1).OnlyEnforceIf(hit)
 
 # OPTIMIZATION
 
@@ -561,8 +592,9 @@ PENALTY_DAYPREF_SLIGHT = 50
 PENALTY_DAYPREF_BAD = 300
 PENALTY_TIMEPREF_SLIGHT = 50
 PENALTY_TIMEPREF_BAD = 200
-PENALTY_NOTWITHNEW = 5
-PENALTY_BALBOA = 1000
+#PENALTY_NOTWITHNEW = 5
+#PENALTY_BALBOA = 1000
+PENALTY_BIGROOM = 1000
 
 penalties = [] # list of all penalties
 
@@ -691,45 +723,55 @@ if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
     penalties.append(sum(penalties_timepref_slight) * PENALTY_TIMEPREF_SLIGHT)
     penalties.append(sum(penalties_timepref_bad) * PENALTY_TIMEPREF_BAD)
 
-if PENALTY_NOTWITHNEW > 0:
-    ce = []
-    for C in courses_regular:
-        c = Courses[C]
-        # true if there is an community teacher in course c
-        e = model.NewBoolVar("")
-        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_community) > 0).OnlyEnforceIf(e)
-        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_community) == 0).OnlyEnforceIf(e.Not())
-        ce.append(e)
-    penalties_notwithnew = []
-    for T in t_withnew:
-        t = Teachers[T]
-        twe = []
-        for C in courses_regular:
-            c = Courses[C]
-            with_community = model.NewBoolVar("")
-            model.AddBoolAnd([tc[(t,c)], ce[c]]).OnlyEnforceIf(with_community)
-            model.AddBoolOr([tc[(t,c)].Not(), ce[c].Not()]).OnlyEnforceIf(with_community.Not())
-            twe.append(with_community)
-        tnwe = model.NewBoolVar("")
-        model.Add(sum(twe) == 0).OnlyEnforceIf(tnwe)
-        model.Add(sum(twe) >= 1).OnlyEnforceIf(tnwe.Not())
-        penalties_notwithnew.append(tnwe)
-    penalties.append(sum(penalties_notwithnew) * PENALTY_NOTWITHNEW)
+if PENALTY_BIGROOM:
+    # we want the big room to be empty so we can rent it
+    bigtaken = model.NewBoolVar("")
+    model.Add(sum(src[(s,Rooms["big"],c)] for s in range(len(slots)) for c in range(len(courses))) >= 1).OnlyEnforceIf(bigtaken)
+    model.Add(sum(src[(s,Rooms["big"],c)] for s in range(len(slots)) for c in range(len(courses))) == 0).OnlyEnforceIf(bigtaken.Not())
+    penalties.append(bigtaken * PENALTY_BIGROOM)
 
-if PENALTY_BALBOA > 0:
-    # at least one balboa course should precede Balboa Closed Training (slot 8)
-    penalties_balboa = []
-    b1 = model.NewBoolVar("")
-    b2 = model.NewBoolVar("")
-    model.Add(cs[Courses["Balboa Beginners 2"]] == 7).OnlyEnforceIf(b1)
-    model.Add(cs[Courses["Balboa Beginners 2"]] != 7).OnlyEnforceIf(b1.Not())
-    model.Add(cs[Courses["Balboa Advanced"]] == 7).OnlyEnforceIf(b2)
-    model.Add(cs[Courses["Balboa Advanced"]] != 7).OnlyEnforceIf(b2.Not())
-    b = model.NewBoolVar("")
-    model.AddBoolOr([b1, b2]).OnlyEnforceIf(b.Not())
-    model.AddBoolAnd([b1.Not(), b2.Not()]).OnlyEnforceIf(b)
-    penalties_balboa.append(b)
-    penalties.append(sum(penalties_balboa) * PENALTY_BALBOA)
+# FANTOMAS
+#penalties.append(sum(tc[(Teachers["FANTOMAS"],c)] for c in range(len(courses))) * 10000)
+
+#if PENALTY_NOTWITHNEW > 0:
+#    ce = []
+#    for C in courses_regular:
+#        c = Courses[C]
+#        # true if there is an community teacher in course c
+#        e = model.NewBoolVar("")
+#        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_community) > 0).OnlyEnforceIf(e)
+#        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_community) == 0).OnlyEnforceIf(e.Not())
+#        ce.append(e)
+#    penalties_notwithnew = []
+#    for T in t_withnew:
+#        t = Teachers[T]
+#        twe = []
+#        for C in courses_regular:
+#            c = Courses[C]
+#            with_community = model.NewBoolVar("")
+#            model.AddBoolAnd([tc[(t,c)], ce[c]]).OnlyEnforceIf(with_community)
+#            model.AddBoolOr([tc[(t,c)].Not(), ce[c].Not()]).OnlyEnforceIf(with_community.Not())
+#            twe.append(with_community)
+#        tnwe = model.NewBoolVar("")
+#        model.Add(sum(twe) == 0).OnlyEnforceIf(tnwe)
+#        model.Add(sum(twe) >= 1).OnlyEnforceIf(tnwe.Not())
+#        penalties_notwithnew.append(tnwe)
+#    penalties.append(sum(penalties_notwithnew) * PENALTY_NOTWITHNEW)
+
+#if PENALTY_BALBOA > 0:
+#    # at least one balboa course should precede Balboa Closed Training (slot 8)
+#    penalties_balboa = []
+#    b1 = model.NewBoolVar("")
+#    b2 = model.NewBoolVar("")
+#    model.Add(cs[Courses["Balboa Beginners 2"]] == 7).OnlyEnforceIf(b1)
+#    model.Add(cs[Courses["Balboa Beginners 2"]] != 7).OnlyEnforceIf(b1.Not())
+#    model.Add(cs[Courses["Balboa Advanced"]] == 7).OnlyEnforceIf(b2)
+#    model.Add(cs[Courses["Balboa Advanced"]] != 7).OnlyEnforceIf(b2.Not())
+#    b = model.NewBoolVar("")
+#    model.AddBoolOr([b1, b2]).OnlyEnforceIf(b.Not())
+#    model.AddBoolAnd([b1.Not(), b2.Not()]).OnlyEnforceIf(b)
+#    penalties_balboa.append(b)
+#    penalties.append(sum(penalties_balboa) * PENALTY_BALBOA)
 
 model.Minimize(sum(penalties))
 
@@ -788,6 +830,7 @@ print(f"Daypref_bad: {sum([solver.Value(p) for p in penalties_daypref_bad])}")
 print(f"Daypref_slight: {sum([solver.Value(p) for p in penalties_daypref_slight])}")
 print(f"Timepref_bad: {sum([solver.Value(p) for p in penalties_timepref_bad])}")
 print(f"Timepref_slight: {sum([solver.Value(p) for p in penalties_timepref_slight])}")
-print(f"Notwithnew: {sum([solver.Value(p) for p in penalties_notwithnew])}")
-print(f"Balboa: {sum([solver.Value(p) for p in penalties_balboa])}")
+#print(f"Notwithnew: {sum([solver.Value(p) for p in penalties_notwithnew])}")
+#print(f"Balboa: {sum([solver.Value(p) for p in penalties_balboa])}")
+print(f"Bigtaken: {solver.Value(bigtaken)}")
 print(f"Total: {sum([solver.Value(p) for p in penalties])}")

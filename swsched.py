@@ -95,7 +95,7 @@ courses_solo = [
 courses_regular = [
     "LH 1 - Beginners /1",
     "LH 1 - Beginners /2",
-    "LH 1 - Beginners /3", #?
+    "LH 1 - Beginners /3",
     "LH 2 - TODO /1",
     "LH 2 - TODO /2",
     "LH 2.5 - Swing-out /1",
@@ -191,6 +191,15 @@ cr_not = {}
 cr_not["Airsteps TODO"] = "small"
 cr_not["Collegiate Shag 1"] = "small"
 cr_not["Collegiate Shag 2"] = "small"
+cr_not["LH 1 - Beginners /1"] = "small"
+cr_not["LH 1 - Beginners /2"] = "small"
+cr_not["LH 1 - Beginners /3"] = "small"
+
+# course C must take place in room R
+# PJ in small room
+cr_strict = {}
+cr_strict["PJ Group /1"] = "small"
+cr_strict["PJ Group /2"] = "small"
 
 # teacher T must teach courses Cs
 tc_strict = {}
@@ -203,8 +212,9 @@ tc_strict["Pavli"] = ["SlowBal"]
 tc_strict["Ilča"] = ["Blues", "LH 5 - TODO"]
 tc_strict["Ivča"] = ["Lindy 45"]
 tc_strict["Míša"] = ["LH 2 - TODO /1"]
-tc_strict["Radek-Š."] = ["Solo 45", "LH 4 - TODO /1"] # TODO or LH3
-tc_strict["Pavla-Š."] = ["Solo 45", "LH 4 - TODO /1"] # TODO or LH3
+tc_strict["Radek-Š."] = ["Solo 45", "LH 4 - TODO /1"]
+tc_strict["Pavla-Š."] = ["Solo 45", "LH 4 - TODO /1"]
+tc_strict["Terka"] = ["Collegiate Shag 2"]
 
 
 # teacher T1 must not teach a course with teacher T2
@@ -218,8 +228,8 @@ tt_not_together = [
 
 # course Cx must happen on different day and at different time than Cy (and Cz)
 courses_different = [
-    #["LH 1 - Beginners /1", "LH 1 - Beginners /2", "LH 1 - Beginners /3"], # TODO
-    ["LH 1 - Beginners /1", "LH 1 - Beginners /2"],
+    ["LH 1 - Beginners /1", "LH 1 - Beginners /2", "LH 1 - Beginners /3"],
+    #["LH 1 - Beginners /1", "LH 1 - Beginners /2"],
     ["LH 2.5 - Swing-out /1", "LH 2.5 - Swing-out /2"],
     ]
 
@@ -236,8 +246,10 @@ courses_diffday = [
 courses_same = [
     ["Collegiate Shag 2", "Shag/Balboa Open Training"],
     ["Balboa 2", "Shag/Balboa Open Training"],
-    ["Balboa 1", "Balboa Closed Training"],
-    ["Balboa 2", "Balboa Closed Training"],
+    #["Balboa 1", "Balboa Closed Training"],
+    #["Balboa 2", "Balboa Closed Training"],
+    ["Solo 45", "Lindy 45"],
+    ["Blues", "Blues/Slow Open Training"],
     ]
 
 
@@ -478,13 +490,23 @@ model.Add(ts[(Teachers["Kuba-Š."],11)] == 0)
 # strict courses schedule
 # Teachers training must be at Thursday evening
 model.Add(cs[Courses["Teachers' Training"]] == 11)
+# nothing else happens in parallel with Teachers' Training
+model.Add(sum(src[(11,r,c)] for r in range(len(rooms)) for c in range(len(courses))) == 1)
 # Balboa Training must be at Wednesday evening
 #model.Add(cs[Courses["Balboa Closed Training"]] == 8)
 # Blues Training must not be on Monday
 #model.Add(cs[Courses["Blues/Slow Open Training"]] > 2)
+
+# strict day preferences
 for (T,D), n in td_pref.items():
     if n == 0: # T cannot teach on day D
         model.Add(td[(Teachers[T], Days[D])] == 0)
+
+# strict time preferences
+for (T,t), n in ttime_pref.items():
+    if n == 0: # T cannot teach on day D
+        for d in range(len(days)):
+            model.Add(ts[(Teachers[T], d*len(times)+t)] == 0)
 
 # same courses should not happen in same days and also not in same times
 # it should probably not be a strict limitation, but it is much easier to write
@@ -544,6 +566,9 @@ for Cs in courses_same:
 
 for (C, R) in cr_not.items():
     model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 0)
+
+for (C, R) in cr_strict.items():
+    model.Add(sum(src[(s,Rooms[R],Courses[C])] for s in range(len(slots))) == 1)
 
 # community teachers must teach exactly 1 course
 for T in teachers_community:
@@ -834,3 +859,6 @@ print(f"Timepref_slight: {sum([solver.Value(p) for p in penalties_timepref_sligh
 #print(f"Balboa: {sum([solver.Value(p) for p in penalties_balboa])}")
 print(f"Bigtaken: {solver.Value(bigtaken)}")
 print(f"Total: {sum([solver.Value(p) for p in penalties])}")
+
+
+# No s tím Balboa tréninkem to je vázaný ani ne na lekci, ale na lektory. Byl bych to já, Jarin, Kuba, Maťo a Ilca, Pavli, Ivča. Plus ideálně prvni nebo druhou lekci, aby mohla přijít i Poli.

@@ -32,7 +32,7 @@ TEACHERS = [
     ("Maťo", True, "lead", True),
     ("Martin", False, "lead", False),
     ("Michal", True, "lead", False),
-    ("Vojta-S.", False, "lead", True),
+    ("Vojta-S.", True, "lead", True),
     ("Standa", True, "lead", False),
     ("Kolin", False, "lead", False),
     ("Kepo", True, "lead", False),
@@ -51,11 +51,13 @@ TEACHERS = [
     ("Silvia", True, "follow", False),
     ("Bláža", False, "follow", True),
     ("Ivča", True, "follow", True),
-    ("Míša", True, "follow", True),
+    ("Míša-L.", True, "follow", True),
     ("Zuzka", True, "follow", True),
     ("Soňa", False, "follow", False),
     ("Marie", False, "follow", False),
     ("Pavla-Š.", True, "follow", False),
+    ("Míša-Z.", True, "follow", True),
+    #("SUPERGIRL", True, "follow", False), # TODO
     ]
 TEACHERS = [t for t in TEACHERS if t[1]] # forget inactive teachers
 
@@ -83,14 +85,14 @@ rooms_venues = {
     }
 
 courses_open = [
-    "Shag/Balboa Open Training",
     "Lindy/Charleston Open Training",
-    "Teachers' Training",
     "Blues/Slow Open Training",
     "Balboa Closed Training",
     ]
 courses_solo = [
     "Solo",
+    "Teachers' Training",
+    "Shag/Balboa Open Training",
     ]
 courses_regular = [
     "LH 1 - Beginners /1",
@@ -140,6 +142,7 @@ t_util_desired["Tom-S."] = 2
 t_util_desired["Tom-K."] = 1
 t_util_desired["Kepo"] = 6 # wanted 2-4 plus 2 for PJ Group
 t_util_desired["Radek-Š."] = 2
+t_util_desired["Standa"] = 3
 # follows' desires
 t_util_desired["Terka"] = 3
 t_util_desired["Janča"] = 8 # wanted 4-6 plus 2 for PJ Group
@@ -151,14 +154,14 @@ t_util_desired["Silvia"] = 2
 t_util_desired["Pavla-Š."] = 2
 
 # course C can be taught only by Ts
-teachers_lh1 = list(set(teachers) - set(["Tom-S.", "Standa", "Terka", "Pavli"]))
-teachers_lh2 = list(set(teachers) - set(["Peťa", "Standa", "Pavli"]))
-teachers_lh2_5 = list(set(teachers) - set(["Peťa", "Standa", "Pavli", "Zuzka"]))
-teachers_lh3 = list(set(teachers) - set(["Peťa", "Standa", "Pavli", "Zuzka"]))
+teachers_lh1 = list(set(teachers) - set(["Tom-S.", "Standa", "Terka", "Pavli", "Míša-Z."]))
+teachers_lh2 = list(set(teachers) - set(["Peťa", "Standa", "Pavli", "Míša-Z."]))
+teachers_lh2_5 = list(set(teachers) - set(["Peťa", "Standa", "Pavli", "Zuzka", "Míša-Z."]))
+teachers_lh3 = list(set(teachers) - set(["Peťa", "Standa", "Pavli", "Zuzka", "Míša-Z."]))
 teachers_lh4 = list(set(teachers_core) - set(["Peťa", "Standa"]))
 teachers_lh5 = ["Kuba-Š.", "Ilča"]
 teachers_airsteps = ["Tom-S.", "Janča"]
-teachers_shag = ["Terka", "Linda", "Standa"]
+teachers_shag = ["Terka", "Linda", "Standa", "Míša-Z."]
 teachers_sls = ["Terka", "Janča", "Maťo"]
 teachers_balboa = ["Peťa", "Jarin", "Kuba-Š.", "Pavli", "Ilča"]
 ct_possible = {}
@@ -182,7 +185,7 @@ for C in courses:
             ct_possible[C] = teachers_shag
         elif "Saint Louis Shag" in C:
             ct_possible[C] = teachers_sls
-        elif "Balboa" in C:
+        elif C.startswith("Balboa"):
             ct_possible[C] = teachers_balboa
 ct_possible["Lindy 45"] = ["Jarin", "Ivča"]
 
@@ -194,6 +197,7 @@ cr_not["Collegiate Shag 2"] = "small"
 cr_not["LH 1 - Beginners /1"] = "small"
 cr_not["LH 1 - Beginners /2"] = "small"
 cr_not["LH 1 - Beginners /3"] = "small"
+cr_not["Teachers' Training"] = "small"
 
 # course C must take place in room R
 # PJ in small room
@@ -203,7 +207,7 @@ cr_strict["PJ Group /2"] = "small"
 
 # teacher T must teach courses Cs
 tc_strict = {}
-tc_strict["Kuba-Š."] = ["LH 2 - TODO /1", "LH 5 - TODO"]
+tc_strict["Kuba-Š."] = ["LH 2 - TODO /1", "LH 5 - TODO", "Teachers' Training"]
 tc_strict["Tom-K."] = ["Blues"]
 tc_strict["Jarin"] = ["SlowBal", "Lindy 45"]
 tc_strict["Kepo"] = ["Solo", "PJ Group /1", "PJ Group /2"]
@@ -211,10 +215,12 @@ tc_strict["Janča"] = ["PJ Group /1", "PJ Group /2"]
 tc_strict["Pavli"] = ["SlowBal"]
 tc_strict["Ilča"] = ["Blues", "LH 5 - TODO"]
 tc_strict["Ivča"] = ["Lindy 45"]
-tc_strict["Míša"] = ["LH 2 - TODO /1"]
+tc_strict["Míša-L."] = ["LH 2 - TODO /1"]
 tc_strict["Radek-Š."] = ["Solo 45", "LH 4 - TODO /1"]
 tc_strict["Pavla-Š."] = ["Solo 45", "LH 4 - TODO /1"]
 tc_strict["Terka"] = ["Collegiate Shag 2"]
+tc_strict["Míša-Z."] = ["Collegiate Shag 1"]
+tc_strict["Standa"] = ["Shag/Balboa Open Training"]
 
 
 # teacher T1 must not teach a course with teacher T2
@@ -245,9 +251,10 @@ courses_diffday = [
 #  * in the same venue # TODO
 courses_same = [
     ["Collegiate Shag 2", "Shag/Balboa Open Training"],
-    ["Balboa 2", "Shag/Balboa Open Training"],
+    #["Balboa 2", "Shag/Balboa Open Training"],
     #["Balboa 1", "Balboa Closed Training"],
     #["Balboa 2", "Balboa Closed Training"],
+    ["Balboa 1", "Balboa 2", "Balboa Closed Training"],
     ["Solo 45", "Lindy 45"],
     ["Blues", "Blues/Slow Open Training"],
     ]
@@ -458,6 +465,7 @@ td_pref[("Zuzka", "Tuesday")] = 0
 td_pref[("Zuzka", "Thursday")] = 3
 td_pref[("Pavla-Š.", "Monday")] = 0
 td_pref[("Pavla-Š.", "Wednesday")] = 0
+td_pref[("Míša-Z.", "Wednesday")] = 0
 
 # teacher T availability at time X (0 - first slot, 1 - second slot, 2 - third slot):
 #   0 cannot
@@ -485,7 +493,7 @@ model.Add(ts[(Teachers["Vojta-N."],10)] == 0)
 # Ilča cannot teach on Wednesday evening
 model.Add(ts[(Teachers["Ilča"],8)] == 0)
 # Kuba "teaches" Teachers' Training
-model.Add(ts[(Teachers["Kuba-Š."],11)] == 0)
+#model.Add(ts[(Teachers["Kuba-Š."],11)] == 0)
 
 # strict courses schedule
 # Teachers training must be at Thursday evening
@@ -496,6 +504,10 @@ model.Add(sum(src[(11,r,c)] for r in range(len(rooms)) for c in range(len(course
 #model.Add(cs[Courses["Balboa Closed Training"]] == 8)
 # Blues Training must not be on Monday
 #model.Add(cs[Courses["Blues/Slow Open Training"]] > 2)
+# Balboa Closed Training does not take place in the last evening slot so Poli can attend
+c = Courses["Balboa Closed Training"]
+for d in range(len(days)):
+    model.Add(cs[c] != d*len(times)+2)
 
 # strict day preferences
 for (T,D), n in td_pref.items():
@@ -598,6 +610,8 @@ damian = True
 if damian:
     model.Add(sum(tc[(Teachers["Tom-K."],c)] for c in range(len(courses))) == 1)
     model.Add(sum(tc[(Teachers["Pavli"],c)] for c in range(len(courses))) == 2)
+    model.Add(sum(tscv[(Teachers["Tom-K."],s,c,Venues["mosilana"])] for s in range(len(slots)) for c in range(len(courses))) == 0)
+    model.Add(sum(tscv[(Teachers["Pavli"],s,c,Venues["mosilana"])] for s in range(len(slots)) for c in range(len(courses))) == 0)
     damianday = model.NewIntVar(0, len(days)-1, "damianday")
     for d in range(len(days)):
         hit = model.NewBoolVar("")
@@ -619,7 +633,7 @@ PENALTY_TIMEPREF_SLIGHT = 50
 PENALTY_TIMEPREF_BAD = 200
 #PENALTY_NOTWITHNEW = 5
 #PENALTY_BALBOA = 1000
-PENALTY_BIGROOM = 1000
+PENALTY_BIGROOM = 5000
 
 penalties = [] # list of all penalties
 
@@ -755,8 +769,11 @@ if PENALTY_BIGROOM:
     model.Add(sum(src[(s,Rooms["big"],c)] for s in range(len(slots)) for c in range(len(courses))) == 0).OnlyEnforceIf(bigtaken.Not())
     penalties.append(bigtaken * PENALTY_BIGROOM)
 
-# FANTOMAS
-#penalties.append(sum(tc[(Teachers["FANTOMAS"],c)] for c in range(len(courses))) * 10000)
+# FANTOMAS and SUPERGIRL
+if "FANTOMAS" in teachers:
+    penalties.append(sum(tc[(Teachers["FANTOMAS"],c)] for c in range(len(courses))) * 10000)
+if "SUPERGIRL" in teachers:
+    penalties.append(sum(tc[(Teachers["SUPERGIRL"],c)] for c in range(len(courses))) * 10000)
 
 #if PENALTY_NOTWITHNEW > 0:
 #    ce = []

@@ -145,7 +145,7 @@ t_util_desired["Radek-Š."] = 2
 t_util_desired["Standa"] = 3
 # follows' desires
 t_util_desired["Terka"] = 3
-t_util_desired["Janča"] = 8 # wanted 4-6 plus 2 for PJ Group
+t_util_desired["Janča"] = 6 # wanted 4-6 plus 2 for PJ Group
 t_util_desired["Ilča"] = 6
 t_util_desired["Pavli"] = 2
 t_util_desired["Linda"] = 2
@@ -198,6 +198,8 @@ cr_not["LH 1 - Beginners /1"] = "small"
 cr_not["LH 1 - Beginners /2"] = "small"
 cr_not["LH 1 - Beginners /3"] = "small"
 cr_not["Teachers' Training"] = "small"
+cr_not["Lindy/Charleston Open Training"] = "small"
+cr_not["Blues/Slow Open Training"] = "small"
 
 # course C must take place in room R
 # PJ in small room
@@ -221,6 +223,7 @@ tc_strict["Pavla-Š."] = ["Solo 45", "LH 4 - TODO /1"]
 tc_strict["Terka"] = ["Collegiate Shag 2"]
 tc_strict["Míša-Z."] = ["Collegiate Shag 1"]
 tc_strict["Standa"] = ["Shag/Balboa Open Training"]
+tc_strict["Peťa"] = ["Balboa 2"]
 
 
 # teacher T1 must not teach a course with teacher T2
@@ -248,7 +251,7 @@ courses_diffday = [
 #  * on the same day
 #  * in different times
 #  * following each other
-#  * in the same venue # TODO
+#  * in the same venue
 courses_same = [
     ["Collegiate Shag 2", "Shag/Balboa Open Training"],
     #["Balboa 2", "Shag/Balboa Open Training"],
@@ -256,6 +259,7 @@ courses_same = [
     #["Balboa 2", "Balboa Closed Training"],
     ["Balboa 1", "Balboa 2", "Balboa Closed Training"],
     ["Solo 45", "Lindy 45"],
+    ["Solo 45", "LH 4 - TODO /1"], # Sustkovi cannot travel to Brno twice a week
     ["Blues", "Blues/Slow Open Training"],
     ]
 
@@ -509,6 +513,10 @@ c = Courses["Balboa Closed Training"]
 for d in range(len(days)):
     model.Add(cs[c] != d*len(times)+2)
 
+#c = Courses["Lindy 45"]
+#for d in range(len(days)):
+#    model.Add(cs[c] != d*len(times)+0)
+
 # strict day preferences
 for (T,D), n in td_pref.items():
     if n == 0: # T cannot teach on day D
@@ -630,10 +638,11 @@ PENALTY_SPLIT = 300
 PENALTY_DAYPREF_SLIGHT = 50
 PENALTY_DAYPREF_BAD = 300
 PENALTY_TIMEPREF_SLIGHT = 50
-PENALTY_TIMEPREF_BAD = 200
+PENALTY_TIMEPREF_BAD = 300
 #PENALTY_NOTWITHNEW = 5
 #PENALTY_BALBOA = 1000
 PENALTY_BIGROOM = 5000
+PENALTY_MOSILANA = 300
 
 penalties = [] # list of all penalties
 
@@ -775,6 +784,14 @@ if "FANTOMAS" in teachers:
 if "SUPERGIRL" in teachers:
     penalties.append(sum(tc[(Teachers["SUPERGIRL"],c)] for c in range(len(courses))) * 10000)
 
+# penalty for not using koliste
+if PENALTY_MOSILANA:
+    util_koliste = model.NewIntVar(0, 2*len(slots), "") # utilization of Koliste
+    model.Add(util_koliste == sum(src[(s,r,c)] for s in range(len(slots)) for r in range(len(rooms)) if rooms_venues[rooms[r]] == "koliste" for c in range(len(courses))))
+    free_koliste = model.NewIntVar(0, 2*len(slots), "") # free slots in Koliste
+    model.Add(free_koliste == 2*len(slots)-util_koliste-1) # -1 for Teachers' Training
+    penalties.append(free_koliste * PENALTY_MOSILANA)
+
 #if PENALTY_NOTWITHNEW > 0:
 #    ce = []
 #    for C in courses_regular:
@@ -875,6 +892,7 @@ print(f"Timepref_slight: {sum([solver.Value(p) for p in penalties_timepref_sligh
 #print(f"Notwithnew: {sum([solver.Value(p) for p in penalties_notwithnew])}")
 #print(f"Balboa: {sum([solver.Value(p) for p in penalties_balboa])}")
 print(f"Bigtaken: {solver.Value(bigtaken)}")
+print(f"Free_koliste: {solver.Value(free_koliste)}")
 print(f"Total: {sum([solver.Value(p) for p in penalties])}")
 
 

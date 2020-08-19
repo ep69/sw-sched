@@ -764,13 +764,13 @@ if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
                     # times that are slightly less preferred
                     times_slight_worse = [time for time in range(len(prefs)) if prefs[time] == 2]
                     slots_slight_worse = [d*len(times)+time for time in times_slight_worse for d in range(len(days))]
-                    penalties_timepref_slight.append(sum(ts[(t,s)] for s in slots_slight_worse) * PENALTY_TIMEPREF_SLIGHT) # TODO mistake? Miltiplying twice?
+                    penalties_timepref_slight.append(sum(ts[(t,s)] for s in slots_slight_worse))
             if PENALTY_TIMEPREF_BAD > 0:
                 if 1 in set(prefs):
                     # not preferred times
                     times_bad = [time for time in range(len(prefs)) if prefs[time] == 1]
                     slots_bad = [d*len(times)+time for time in times_bad for d in range(len(days))]
-                    penalties_timepref_bad.append(sum(ts[(t,s)] for s in slots_bad) * PENALTY_TIMEPREF_BAD) # TODO mistake? Miltiplying twice?
+                    penalties_timepref_bad.append(sum(ts[(t,s)] for s in slots_bad))
     penalties.append(sum(penalties_timepref_slight) * PENALTY_TIMEPREF_SLIGHT)
     penalties.append(sum(penalties_timepref_bad) * PENALTY_TIMEPREF_BAD)
 

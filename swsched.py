@@ -508,6 +508,8 @@ model.Add(sum(src[(11,r,c)] for r in range(len(rooms)) for c in range(len(course
 #model.Add(cs[Courses["Balboa Closed Training"]] == 8)
 # Blues Training must not be on Monday
 #model.Add(cs[Courses["Blues/Slow Open Training"]] > 2)
+# Shag/Balboa open is AFTER Collegiate Shag 2 (combined with courses_same
+model.Add(cs[Courses["Collegiate Shag 2"]]+1 == cs[Courses["Shag/Balboa Open Training"]])
 # Balboa Closed Training does not take place in the last evening slot so Poli can attend
 c = Courses["Balboa Closed Training"]
 for d in range(len(days)):
@@ -643,6 +645,7 @@ PENALTY_TIMEPREF_BAD = 300
 #PENALTY_BALBOA = 1000
 PENALTY_BIGROOM = 5000
 PENALTY_MOSILANA = 300
+PENALTY_BALBOA_CLOSED = 100
 
 penalties = [] # list of all penalties
 
@@ -761,13 +764,13 @@ if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
                     # times that are slightly less preferred
                     times_slight_worse = [time for time in range(len(prefs)) if prefs[time] == 2]
                     slots_slight_worse = [d*len(times)+time for time in times_slight_worse for d in range(len(days))]
-                    penalties_timepref_slight.append(sum(ts[(t,s)] for s in slots_slight_worse) * PENALTY_TIMEPREF_SLIGHT)
+                    penalties_timepref_slight.append(sum(ts[(t,s)] for s in slots_slight_worse) * PENALTY_TIMEPREF_SLIGHT) # TODO mistake? Miltiplying twice?
             if PENALTY_TIMEPREF_BAD > 0:
                 if 1 in set(prefs):
                     # not preferred times
                     times_bad = [time for time in range(len(prefs)) if prefs[time] == 1]
                     slots_bad = [d*len(times)+time for time in times_bad for d in range(len(days))]
-                    penalties_timepref_bad.append(sum(ts[(t,s)] for s in slots_bad) * PENALTY_TIMEPREF_BAD)
+                    penalties_timepref_bad.append(sum(ts[(t,s)] for s in slots_bad) * PENALTY_TIMEPREF_BAD) # TODO mistake? Miltiplying twice?
     penalties.append(sum(penalties_timepref_slight) * PENALTY_TIMEPREF_SLIGHT)
     penalties.append(sum(penalties_timepref_bad) * PENALTY_TIMEPREF_BAD)
 
@@ -791,6 +794,21 @@ if PENALTY_MOSILANA:
     free_koliste = model.NewIntVar(0, 2*len(slots), "") # free slots in Koliste
     model.Add(free_koliste == 2*len(slots)-util_koliste-1) # -1 for Teachers' Training
     penalties.append(free_koliste * PENALTY_MOSILANA)
+
+# penalty if interested people cannot attend Balboa Closed Training (they teach something else in the same time)
+if PENALTY_BALBOA_CLOSED:
+    # Poli is omitted as inactive
+    baltrain_people = ["Peťa", "Jarin", "Kuba-Š.", "Maťo", "Ilča", "Pavli", "Ivča"]
+    penalties_balboa_closed = []
+    for s in range(len(slots)):
+        hit = model.NewBoolVar("")
+        model.Add(cs[Courses["Balboa Closed Training"]] == s).OnlyEnforceIf(hit)
+        model.Add(cs[Courses["Balboa Closed Training"]] != s).OnlyEnforceIf(hit.Not())
+        pbc = model.NewIntVar(0, len(baltrain_people)-1, "") # penalty for the slot
+        model.Add(pbc == sum(ts[(Teachers[T],s)] for T in baltrain_people)).OnlyEnforceIf(hit)
+        model.Add(pbc == 0).OnlyEnforceIf(hit.Not())
+        penalties_balboa_closed.append(pbc)
+    penalties.append(sum(penalties_balboa_closed) * PENALTY_BALBOA_CLOSED)
 
 #if PENALTY_NOTWITHNEW > 0:
 #    ce = []
@@ -893,6 +911,7 @@ print(f"Timepref_slight: {sum([solver.Value(p) for p in penalties_timepref_sligh
 #print(f"Balboa: {sum([solver.Value(p) for p in penalties_balboa])}")
 print(f"Bigtaken: {solver.Value(bigtaken)}")
 print(f"Free_koliste: {solver.Value(free_koliste)}")
+print(f"Balboa_closed: {sum([solver.Value(p) for p in penalties_balboa_closed])}")
 print(f"Total: {sum([solver.Value(p) for p in penalties])}")
 
 

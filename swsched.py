@@ -909,8 +909,10 @@ for n in range(len(slots)):
 
 print()
 print("Penalties:")
-#print(f"Overwork: {sum([solver.Value(p) for p in penalties_overwork])}")
-print(f"Underwork: {sum([solver.Value(p) for p in penalties_underwork])}")
+if PENALTY_OVERWORK > 0:
+    print(f"Overwork: {sum([solver.Value(p) for p in penalties_overwork])}")
+if PENALTY_UNDERWORK > 0:
+    print(f"Underwork: {sum([solver.Value(p) for p in penalties_underwork])}")
 print(f"Days: {sum([solver.Value(p) for p in penalties_days])}")
 print(f"Split: {sum([solver.Value(p) for p in penalties_split])}")
 print(f"Daypref_bad: {sum([solver.Value(p) for p in penalties_daypref_bad])}")

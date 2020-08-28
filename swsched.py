@@ -865,37 +865,79 @@ model.Minimize(sum(penalties))
 print(model.ModelStats())
 print()
 
+def print_solution(src, tc, objective=None):
+    if objective:
+        print(f"Objective value: {objective}")
+    for s in range(len(slots)):
+        for r in range(len(rooms)):
+            for c in range(len(courses)):
+                if src[(s,r,c)]:
+                    Ts = []
+                    if courses[c] in courses_open:
+                        Ts.append("OPEN\t")
+                    elif courses[c] in courses_solo:
+                        for t in range(len(teachers)):
+                            #if solver.Value(tc[(t,c)]):
+                            if tc[(t,c)]:
+                                Ts.append(teachers[t] + "\t")
+                                break
+                    elif courses[c] in courses_regular:
+                        for t in range(len(teachers)):
+                            if tc[(t,c)]:
+                                Ts.append(teachers[t])
+                    if len(Ts) == 2 and Ts[0] in teachers_follow:
+                        Ts[0], Ts[1] = Ts[1], Ts[2]
+                    print(f"{slots[s]}\t {rooms[r]}\t{'+'.join(Ts)}\t{courses[c]}")
+
+class ContinuousSolutionPrinter(cp_model.CpSolverSolutionCallback):
+    def __init__(self):
+        print("CSP")
+        self.count = 0
+        cp_model.CpSolverSolutionCallback.__init__(self)
+
+    def OnSolutionCallback(self):
+    #def on_solution_callback(self):
+        result_src = {}
+        for s in range(len(slots)):
+            for r in range(len(rooms)):
+                for c in range(len(courses)):
+                        result_src[(s,r,c)] = self.Value(src[(s,r,c)])
+        result_tc = {}
+        for t in range(len(teachers)):
+            for c in range(len(courses)):
+                result_tc[(t,c)] = self.Value(tc[(t,c)])
+        print(f"No: {self.count}")
+        print(f"Wall time: {self.WallTime()}")
+        print(f"Branches: {self.NumBranches()}")
+        #print(f"Conflicts: {self.NumConflicts()}")
+        print_solution(result_src, result_tc, self.ObjectiveValue())
+        print()
+        self.count += 1
+
+
 solver = cp_model.CpSolver()
 #solver.parameters.max_time_in_seconds = 20.0
 #status = solver.Solve(model)
-status = solver.SolveWithSolutionCallback(model, cp_model.ObjectiveSolutionPrinter())
+#status = solver.SolveWithSolutionCallback(model, cp_model.ObjectiveSolutionPrinter())
+status = solver.SolveWithSolutionCallback(model, ContinuousSolutionPrinter())
 statusname = solver.StatusName(status)
 print(f"Solving finished in {solver.WallTime()} seconds with status {status} - {statusname}")
 if statusname not in ["FEASIBLE", "OPTIMAL"]:
     print("Solution NOT found")
     sys.exit(1)
 
-print()
-print("SOLUTION:")
+result_src = {}
 for s in range(len(slots)):
     for r in range(len(rooms)):
         for c in range(len(courses)):
-            if solver.Value(src[(s,r,c)]):
-                Ts = []
-                if courses[c] in courses_open:
-                    Ts.append("OPEN\t")
-                elif courses[c] in courses_solo:
-                    for t in range(len(teachers)):
-                        if solver.Value(tc[(t,c)]):
-                            Ts.append(teachers[t] + "\t")
-                            break
-                elif courses[c] in courses_regular:
-                    for t in range(len(teachers)):
-                        if solver.Value(tc[(t,c)]):
-                            Ts.append(teachers[t])
-                if len(Ts) == 2 and Ts[0] in teachers_follow:
-                    Ts[0], Ts[1] = Ts[1], Ts[2]
-                print(f"{slots[s]}\t {rooms[r]}\t{'+'.join(Ts)}\t{courses[c]}")
+                result_src[(s,r,c)] = solver.Value(src[(s,r,c)])
+result_tc = {}
+for t in range(len(teachers)):
+    for c in range(len(courses)):
+        result_tc[(t,c)] = solver.Value(tc[(t,c)])
+print()
+print("SOLUTION:")
+print_solution(result_src, result_tc)
 
 print()
 print(f"Teachers' utilization:")

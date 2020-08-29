@@ -643,45 +643,53 @@ if damian:
 
 # OPTIMIZATION
 
-PENALTY_OVERWORK = 0 #100 # squared # TODO overwork not really possible due to other constraints
-PENALTY_UNDERWORK = 50
-PENALTY_DAYS = 300 # squared
-PENALTY_SPLIT = 300
-PENALTY_DAYPREF_SLIGHT = 50
-PENALTY_DAYPREF_BAD = 300
-PENALTY_TIMEPREF_SLIGHT = 50
-PENALTY_TIMEPREF_BAD = 300
-#PENALTY_NOTWITHNEW = 5
-#PENALTY_BALBOA = 1000
-PENALTY_RENT = 5000
-PENALTY_MOSILANA = 300
-PENALTY_BALBOA_CLOSED = 300
+# "name" -> coeff
+PENALTIES = {
+    "overwork": 100,
+    "underwork": 100,
+    "days": 300,
+    "split": 300,
+    "daypref_bad": 300,
+    "daypref_slight": 50,
+    "timepref_bad": 300,
+    "timepref_slight": 50,
+    "rent": 5000,
+    "mosilana": 300,
+    "balboa_closed": 100,
+    "faketeachers": 10000,
+}
 
-penalties = [] # list of all penalties
+penalties = {} # penalties data (model variables)
+penalties_analysis = {} # deeper analysis functions for penalties
 
-if PENALTY_OVERWORK > 0 or PENALTY_UNDERWORK > 0:
-    # teaching should be split evenly
-    penalties_overwork = []
-    penalties_underwork = []
-    # disregarding people with t_util_desired set (roughly - subtracting also number of courses from "defaul pool")
-    #util_avg = (2*len(courses_regular) + len(courses_solo) - sum(t_util_desired.values()) - EXTERNAL_MAX) \
-    #   // (len(teachers_core) - len(t_util_desired)) \
-    #   + 1
-    for T in teachers_core:
-        t = Teachers[T]
-        min_diff = -max(list(t_util_desired.values()) + [1])
-        max_diff = len(courses_regular) + len(courses_solo)
-        util_diff = model.NewIntVar(min_diff, max_diff, "")
-        # ideal utilization - either what teacher specifies, or average
-        util_ideal = t_util_desired.get(T, 1)
-        model.Add(util_diff == teach_num[t] - util_ideal)
-        if PENALTY_OVERWORK > 0:
-            util_excess = model.NewIntVar(0, max_diff, "")
-            model.AddMaxEquality(util_excess, [util_diff, 0])
-            util_excess_sq = model.NewIntVar(0, max_diff**2, "Texcesssq:%i" % t)
-            model.AddMultiplicationEquality(util_excess_sq, [util_excess, util_excess])
-            penalties_overwork.append(util_excess_sq)
-        if PENALTY_UNDERWORK > 0:
+for (name, coeff) in PENALTIES.items():
+    if coeff == 0:
+        print(f"Penalties: skipping '{name}'")
+        continue
+    #if PENALTY_OVERWORK > 0 or PENALTY_UNDERWORK > 0:
+    if name == "underwork":
+        # teaching should be split evenly
+        #penalties_overwork = []
+        penalties_underwork = []
+        # disregarding people with t_util_desired set (roughly - subtracting also number of courses from "defaul pool")
+        #util_avg = (2*len(courses_regular) + len(courses_solo) - sum(t_util_desired.values()) - EXTERNAL_MAX) \
+        #   // (len(teachers_core) - len(t_util_desired)) \
+        #   + 1
+        for T in teachers_core:
+            t = Teachers[T]
+            min_diff = -max(list(t_util_desired.values()) + [1])
+            max_diff = len(courses_regular) + len(courses_solo)
+            util_diff = model.NewIntVar(min_diff, max_diff, "")
+            # ideal utilization - either what teacher specifies, or average
+            util_ideal = t_util_desired.get(T, 1)
+            model.Add(util_diff == teach_num[t] - util_ideal)
+            #if PENALTY_OVERWORK > 0:
+            #    util_excess = model.NewIntVar(0, max_diff, "")
+            #    model.AddMaxEquality(util_excess, [util_diff, 0])
+            #    util_excess_sq = model.NewIntVar(0, max_diff**2, "Texcesssq:%i" % t)
+            #    model.AddMultiplicationEquality(util_excess_sq, [util_excess, util_excess])
+            #    penalties_overwork.append(util_excess_sq)
+        #if PENALTY_UNDERWORK > 0:
             # we consider -1 difference ok - e.g., if teacher wants to teach 4 courses, it is ok to teach 3
             util_diff_incr = model.NewIntVar(min_diff+1, max_diff+1, "")
             model.Add(util_diff_incr == util_diff + 1)
@@ -690,182 +698,225 @@ if PENALTY_OVERWORK > 0 or PENALTY_UNDERWORK > 0:
             util_lack_abs = model.NewIntVar(0, abs(min_diff), "")
             model.AddAbsEquality(util_lack_abs, util_lack)
             penalties_underwork.append(util_lack_abs)
-    penalties.append(sum(penalties_overwork) * PENALTY_OVERWORK + sum(penalties_underwork) * PENALTY_UNDERWORK)
-
-if PENALTY_DAYS > 0:
-    # nobody should come more days then necessary
-    penalties_days = []
-    for t in range(len(teachers)):
-        teaches_days = model.NewIntVar(0, len(days), "TD:%i" % t)
-        model.Add(teaches_days == sum(td[(t,d)] for d in range(len(days))))
-        teaches_minus_1 = model.NewIntVar(0, len(days), "Tm1:%i" % t)
-        teaches_some = model.NewBoolVar("Ts:%i" % t)
-        model.Add(teach_num[t] >= 1).OnlyEnforceIf(teaches_some)
-        model.Add(teach_num[t] == 0).OnlyEnforceIf(teaches_some.Not())
-        model.Add(teaches_minus_1 == teach_num[t] - 1).OnlyEnforceIf(teaches_some)
-        model.Add(teaches_minus_1 == 0).OnlyEnforceIf(teaches_some.Not())
-        should_teach_days = model.NewIntVar(0, len(days), "TDs:%i" % t)
-        model.AddDivisionEquality(should_teach_days, teaches_minus_1, len(times)) # -1 to compensate rounding down
-        days_extra = model.NewIntVar(0, len(days), "Tdd:%i" % t)
-        model.Add(days_extra == teaches_days - should_teach_days - 1).OnlyEnforceIf(teaches_some) # -1 to compensate rounding down
-        model.Add(days_extra == 0).OnlyEnforceIf(teaches_some.Not())
-        days_extra_sq = model.NewIntVar(0, len(days)**2, "Tdds:%i" % t)
-        model.AddMultiplicationEquality(days_extra_sq, [days_extra, days_extra])
-        penalties_days.append(days_extra_sq)
-    penalties.append(sum(penalties_days) * PENALTY_DAYS)
-
-if PENALTY_SPLIT > 0:
-    # teacher should not wait between lessons
-    penalties_split = []
-    for t in range(len(teachers)):
-        days_split = model.NewIntVar(0, len(days), "TDsplit:%i" % t)
-        tsplits = []
-        for d in range(len(days)):
-            # tsplit == True iff teacher t teaches just the first and the last course in day d
-            tsubsplits = []
-            for i in range(len(times)):
-                tsubsplit = model.NewBoolVar("tsubsplit:t%id%ii%i" % (t,d,i))
-                model.Add(sum(ts[(t,s)] for s in [d*len(times)+i]) == 1).OnlyEnforceIf(tsubsplit)
-                model.Add(sum(ts[(t,s)] for s in [d*len(times)+i]) == 0).OnlyEnforceIf(tsubsplit.Not())
-                tsubsplits.append(tsubsplit)
-            tsplit = model.NewBoolVar("tsplit:t%id%i" % (t,d))
-            model.AddBoolAnd([tsubsplits[0], tsubsplits[1].Not(), tsubsplits[2]]).OnlyEnforceIf(tsplit)
-            model.AddBoolOr([tsubsplits[0].Not(), tsubsplits[1], tsubsplits[2].Not()]).OnlyEnforceIf(tsplit.Not())
-            tsplits.append(tsplit)
-        model.Add(days_split == sum(tsplits))
-        penalties_split.append(days_split)
-    penalties.append(sum(penalties_split) * PENALTY_SPLIT)
-
-if PENALTY_DAYPREF_SLIGHT > 0 or PENALTY_DAYPREF_BAD > 0:
-    # day preferences
-    penalties_daypref_slight = []
-    penalties_daypref_bad = []
-    for T in teachers:
-        t = Teachers[T]
-        prefs = []
-        for D in days:
-            prefs.append(td_pref.get((T,D), 2))
-        if set(prefs) - set([0, 2]): # teacher T prefers some days over others
-            if PENALTY_DAYPREF_SLIGHT > 0:
+        #penalties.append(sum(penalties_overwork) * PENALTY_OVERWORK + sum(penalties_underwork) * PENALTY_UNDERWORK)
+        penalties[name] = penalties_underwork
+    elif name == "days":
+        # nobody should come more days then necessary
+        penalties_days = []
+        for t in range(len(teachers)):
+            teaches_days = model.NewIntVar(0, len(days), "TD:%i" % t)
+            model.Add(teaches_days == sum(td[(t,d)] for d in range(len(days))))
+            teaches_minus_1 = model.NewIntVar(0, len(days), "Tm1:%i" % t)
+            teaches_some = model.NewBoolVar("Ts:%i" % t)
+            model.Add(teach_num[t] >= 1).OnlyEnforceIf(teaches_some)
+            model.Add(teach_num[t] == 0).OnlyEnforceIf(teaches_some.Not())
+            model.Add(teaches_minus_1 == teach_num[t] - 1).OnlyEnforceIf(teaches_some)
+            model.Add(teaches_minus_1 == 0).OnlyEnforceIf(teaches_some.Not())
+            should_teach_days = model.NewIntVar(0, len(days), "TDs:%i" % t)
+            model.AddDivisionEquality(should_teach_days, teaches_minus_1, len(times)) # -1 to compensate rounding down
+            days_extra = model.NewIntVar(0, len(days), "Tdd:%i" % t)
+            model.Add(days_extra == teaches_days - should_teach_days - 1).OnlyEnforceIf(teaches_some) # -1 to compensate rounding down
+            model.Add(days_extra == 0).OnlyEnforceIf(teaches_some.Not())
+            days_extra_sq = model.NewIntVar(0, len(days)**2, "Tdds:%i" % t)
+            model.AddMultiplicationEquality(days_extra_sq, [days_extra, days_extra])
+            penalties_days.append(days_extra_sq)
+        penalties[name] = penalties_days
+        def analysis(src, tc):
+            result = []
+            for t in range(len(teachers)):
+                cs = []
+                for c in range(len(courses)):
+                    if tc[(t,c)]:
+                        cs.append(c)
+                n_courses = sum(tc[(t,c)] for c in range(len(courses)))
+                assert(len(cs) == n_courses)
+                n_days = 0
+                for d in range(len(days)):
+                    if sum(src[(s,r,c)] for s in range(d*len(times), (d+1)*len(times)) for r in range(len(rooms)) for c in cs):
+                        n_days += 1
+                if n_days*len(times) - n_courses >= len(times):
+                    result.append(f"{teachers[t]} {n_courses}c/{n_days}d")
+            return result
+        penalties_analysis[name] = analysis
+    elif name == "split":
+        # teacher should not wait between lessons
+        penalties_split = []
+        for t in range(len(teachers)):
+            days_split = model.NewIntVar(0, len(days), "TDsplit:%i" % t)
+            tsplits = []
+            for d in range(len(days)):
+                # tsplit == True iff teacher t teaches just the first and the last course in day d
+                tsubsplits = []
+                for i in range(len(times)):
+                    tsubsplit = model.NewBoolVar("tsubsplit:t%id%ii%i" % (t,d,i))
+                    model.Add(sum(ts[(t,s)] for s in [d*len(times)+i]) == 1).OnlyEnforceIf(tsubsplit)
+                    model.Add(sum(ts[(t,s)] for s in [d*len(times)+i]) == 0).OnlyEnforceIf(tsubsplit.Not())
+                    tsubsplits.append(tsubsplit)
+                tsplit = model.NewBoolVar("tsplit:t%id%i" % (t,d))
+                model.AddBoolAnd([tsubsplits[0], tsubsplits[1].Not(), tsubsplits[2]]).OnlyEnforceIf(tsplit)
+                model.AddBoolOr([tsubsplits[0].Not(), tsubsplits[1], tsubsplits[2].Not()]).OnlyEnforceIf(tsplit.Not())
+                tsplits.append(tsplit)
+            model.Add(days_split == sum(tsplits))
+            penalties_split.append(days_split)
+        penalties[name] = penalties_split
+        def analysis(src, tc):
+            result = []
+            for t in range(len(teachers)):
+                cs = []
+                for c in range(len(courses)):
+                    if tc[(t,c)]:
+                        cs.append(c)
+                n = 0
+                for d in range(len(days)):
+                    if (
+                            sum(src[(d*len(times),r,c)]  for r in range(len(rooms)) for c in cs) >= 1
+                            and sum(src[(d*len(times)+1,r,c)]  for r in range(len(rooms)) for c in cs) == 0
+                            and sum(src[(d*len(times)+2,r,c)]  for r in range(len(rooms)) for c in cs) >= 1
+                            ):
+                        n += 1
+                if n > 0:
+                    result.append(f"{teachers[t]}/{n}")
+            return result
+        penalties_analysis[name] = analysis
+    elif name == "daypref_bad":
+        # day preferences
+        penalties_daypref_bad = []
+        for T in teachers:
+            t = Teachers[T]
+            prefs = []
+            for D in days:
+                prefs.append(td_pref.get((T,D), 2))
+            if set(prefs) - set([0, 2]): # teacher T prefers some days over others
+                if 1 in set(prefs): # some days are bad
+                    days_bad = [d for d in range(len(prefs)) if prefs[d] == 1]
+                    penalties_daypref_bad.append(sum(td[(t,d)] for d in days_bad))
+        penalties[name] = penalties_daypref_bad
+        def analysis(src, tc):
+            result = []
+            for t in range(len(teachers)):
+                cs = []
+                for c in range(len(courses)):
+                    if tc[(t,c)]:
+                        cs.append(c)
+                bad_days = []
+                for d in range(len(days)):
+                    if td_pref.get((teachers[t],days[d]), 2) == 1:
+                        if sum(src[(s,r,c)]  for s in range(d*len(times),(d+1)*len(times)) for r in range(len(rooms)) for c in cs) >= 1:
+                            bad_days.append(d)
+                if bad_days:
+                    result.append(f"{teachers[t]}/{','.join([days[d] for d in bad_days])}")
+            return result
+        penalties_analysis[name] = analysis
+    elif name == "daypref_slight":
+        # day preferences
+        penalties_daypref_slight = []
+        for T in teachers:
+            t = Teachers[T]
+            prefs = []
+            for D in days:
+                prefs.append(td_pref.get((T,D), 2))
+            if set(prefs) - set([0, 2]): # teacher T prefers some days over others
                 if set([2,3]) <= set(prefs):
                     # days that are slightly less preferred
                     days_slight_worse = [d for d in range(len(prefs)) if prefs[d] == 2]
                     penalties_daypref_slight.append(sum(td[(t,d)] for d in days_slight_worse))
-            if PENALTY_DAYPREF_BAD > 0:
-                if 1 in set(prefs):
-                    # not preferred days
-                    days_bad = [d for d in range(len(prefs)) if prefs[d] == 1]
-                    penalties_daypref_bad.append(sum(td[(t,d)] for d in days_bad))
-    penalties.append(sum(penalties_daypref_slight)*PENALTY_DAYPREF_SLIGHT)
-    penalties.append(sum(penalties_daypref_bad)*PENALTY_DAYPREF_BAD)
-
-if PENALTY_TIMEPREF_SLIGHT > 0 or PENALTY_TIMEPREF_BAD > 0:
-    # time preferences
-    penalties_timepref_slight = []
-    penalties_timepref_bad = []
-    for T in teachers:
-        t = Teachers[T]
-        prefs = []
-        for time in range(len(times)):
-            prefs.append(ttime_pref.get((T,time), 2))
-        if set(prefs) - set([0, 2]): # teacher T prefers some times over others
-            if PENALTY_TIMEPREF_SLIGHT > 0:
-                if set([2,3]) <= set(prefs):
-                    # times that are slightly less preferred
-                    times_slight_worse = [time for time in range(len(prefs)) if prefs[time] == 2]
-                    slots_slight_worse = [d*len(times)+time for time in times_slight_worse for d in range(len(days))]
-                    penalties_timepref_slight.append(sum(ts[(t,s)] for s in slots_slight_worse))
-            if PENALTY_TIMEPREF_BAD > 0:
+        penalties[name] = penalties_daypref_slight
+    elif name == "timepref_bad":
+        # time preferences
+        penalties_timepref_bad = []
+        for T in teachers:
+            t = Teachers[T]
+            prefs = []
+            for time in range(len(times)):
+                prefs.append(ttime_pref.get((T,time), 2))
+            if set(prefs) - set([0, 2]): # teacher T prefers some times over others
                 if 1 in set(prefs):
                     # not preferred times
                     times_bad = [time for time in range(len(prefs)) if prefs[time] == 1]
                     slots_bad = [d*len(times)+time for time in times_bad for d in range(len(days))]
                     penalties_timepref_bad.append(sum(ts[(t,s)] for s in slots_bad))
-    penalties.append(sum(penalties_timepref_slight) * PENALTY_TIMEPREF_SLIGHT)
-    penalties.append(sum(penalties_timepref_bad) * PENALTY_TIMEPREF_BAD)
+        penalties[name] = penalties_timepref_bad
+        def analysis(src, tc):
+            result = []
+            for t in range(len(teachers)):
+                cs = []
+                for c in range(len(courses)):
+                    if tc[(t,c)]:
+                        cs.append(c)
+                bad_times = []
+                for time in range(len(times)):
+                    if ttime_pref.get((teachers[t],time), 2) == 1:
+                        bad_times.append(time)
+                n = 0
+                bad_days = []
+                for d in range(len(days)):
+                    day_sum = sum(src[(d*len(times)+time,r,c)]  for time in bad_times for r in range(len(rooms)) for c in cs)
+                    if day_sum >= 1:
+                        n += day_sum
+                        bad_days.append(d)
+                if bad_days:
+                    result.append(f"{teachers[t]}/{n}-{','.join([days[d] for d in bad_days])}")
+            return result
+        penalties_analysis[name] = analysis
+    elif name == "timepref_slight":
+        # time preferences
+        penalties_timepref_slight = []
+        for T in teachers:
+            t = Teachers[T]
+            prefs = []
+            for time in range(len(times)):
+                prefs.append(ttime_pref.get((T,time), 2))
+            if set(prefs) - set([0, 2]): # teacher T prefers some times over others
+                if set([2,3]) <= set(prefs):
+                    # times that are slightly less preferred
+                    times_slight_worse = [time for time in range(len(prefs)) if prefs[time] == 2]
+                    slots_slight_worse = [d*len(times)+time for time in times_slight_worse for d in range(len(days))]
+                    penalties_timepref_slight.append(sum(ts[(t,s)] for s in slots_slight_worse))
+        penalties[name] = penalties_timepref_slight
+    elif name == "rent": # we want to rent the small room so it should be empty
+        # we want the small room to be empty so we can rent it
+        smalltaken = model.NewBoolVar("")
+        model.Add(sum(src[(s,Rooms["small"],c)] for s in range(len(slots)) for c in range(len(courses))) >= 1).OnlyEnforceIf(smalltaken)
+        model.Add(sum(src[(s,Rooms["small"],c)] for s in range(len(slots)) for c in range(len(courses))) == 0).OnlyEnforceIf(smalltaken.Not())
+        penalties[name] = [smalltaken]
+    elif name == "faketeachers":
+        penalties_faketeachers = []
+        # FANTOMAS and SUPERGIRL
+        if "FANTOMAS" in teachers:
+            penalties_faketeachers.append(sum(tc[(Teachers["FANTOMAS"],c)] for c in range(len(courses))))
+        if "SUPERGIRL" in teachers:
+            penalties_faketeachers.append(sum(tc[(Teachers["SUPERGIRL"],c)] for c in range(len(courses))))
+        penalties[name] = penalties_faketeachers
+    elif name == "mosilana": # penalty for not using koliste
+        util_koliste = model.NewIntVar(0, 2*len(slots), "") # utilization of Koliste
+        model.Add(util_koliste == sum(src[(s,r,c)] for s in range(len(slots)) for r in range(len(rooms)) if rooms_venues[rooms[r]] == "koliste" for c in range(len(courses))))
+        free_koliste = model.NewIntVar(0, 2*len(slots), "") # free slots in Koliste
+        model.Add(free_koliste == 2*len(slots)-util_koliste-1) # -1 for Teachers' Training
+        penalties[name] = [free_koliste]
+    elif name == "balboa_closed": # penalty if interested people cannot attend Balboa Closed Training (they teach something else in the same time)
+        # Poli is omitted as inactive
+        baltrain_people = ["Peťa", "Jarin", "Kuba-Š.", "Maťo", "Ilča", "Pavli", "Ivča"]
+        penalties_balboa_closed = []
+        for s in range(len(slots)):
+            hit = model.NewBoolVar("")
+            model.Add(cs[Courses["Balboa Closed Training"]] == s).OnlyEnforceIf(hit)
+            model.Add(cs[Courses["Balboa Closed Training"]] != s).OnlyEnforceIf(hit.Not())
+            pbc = model.NewIntVar(0, len(baltrain_people)-1, "") # penalty for the slot
+            model.Add(pbc == sum(ts[(Teachers[T],s)] for T in baltrain_people)).OnlyEnforceIf(hit)
+            model.Add(pbc == 0).OnlyEnforceIf(hit.Not())
+            penalties_balboa_closed.append(pbc)
+        penalties[name] = penalties_balboa_closed
 
-if PENALTY_RENT: # we want to rent the small room so it should be empty
-    # we want the big room to be empty so we can rent it
-    smalltaken = model.NewBoolVar("")
-    model.Add(sum(src[(s,Rooms["small"],c)] for s in range(len(slots)) for c in range(len(courses))) >= 1).OnlyEnforceIf(smalltaken)
-    model.Add(sum(src[(s,Rooms["small"],c)] for s in range(len(slots)) for c in range(len(courses))) == 0).OnlyEnforceIf(smalltaken.Not())
-    penalties.append(smalltaken * PENALTY_RENT)
+penalties_values = []
+for (name, l) in penalties.items():
+    penalties_values.append(PENALTIES[name] * sum(l))
 
-# FANTOMAS and SUPERGIRL
-if "FANTOMAS" in teachers:
-    penalties.append(sum(tc[(Teachers["FANTOMAS"],c)] for c in range(len(courses))) * 10000)
-if "SUPERGIRL" in teachers:
-    penalties.append(sum(tc[(Teachers["SUPERGIRL"],c)] for c in range(len(courses))) * 10000)
-
-# penalty for not using koliste
-if PENALTY_MOSILANA:
-    util_koliste = model.NewIntVar(0, 2*len(slots), "") # utilization of Koliste
-    model.Add(util_koliste == sum(src[(s,r,c)] for s in range(len(slots)) for r in range(len(rooms)) if rooms_venues[rooms[r]] == "koliste" for c in range(len(courses))))
-    free_koliste = model.NewIntVar(0, 2*len(slots), "") # free slots in Koliste
-    model.Add(free_koliste == 2*len(slots)-util_koliste-1) # -1 for Teachers' Training
-    penalties.append(free_koliste * PENALTY_MOSILANA)
-
-# penalty if interested people cannot attend Balboa Closed Training (they teach something else in the same time)
-if PENALTY_BALBOA_CLOSED:
-    # Poli is omitted as inactive
-    baltrain_people = ["Peťa", "Jarin", "Kuba-Š.", "Maťo", "Ilča", "Pavli", "Ivča"]
-    penalties_balboa_closed = []
-    for s in range(len(slots)):
-        hit = model.NewBoolVar("")
-        model.Add(cs[Courses["Balboa Closed Training"]] == s).OnlyEnforceIf(hit)
-        model.Add(cs[Courses["Balboa Closed Training"]] != s).OnlyEnforceIf(hit.Not())
-        pbc = model.NewIntVar(0, len(baltrain_people)-1, "") # penalty for the slot
-        model.Add(pbc == sum(ts[(Teachers[T],s)] for T in baltrain_people)).OnlyEnforceIf(hit)
-        model.Add(pbc == 0).OnlyEnforceIf(hit.Not())
-        penalties_balboa_closed.append(pbc)
-    penalties.append(sum(penalties_balboa_closed) * PENALTY_BALBOA_CLOSED)
-
-#if PENALTY_NOTWITHNEW > 0:
-#    ce = []
-#    for C in courses_regular:
-#        c = Courses[C]
-#        # true if there is an community teacher in course c
-#        e = model.NewBoolVar("")
-#        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_community) > 0).OnlyEnforceIf(e)
-#        model.Add(sum(tc[(Teachers[T],c)] for T in teachers_community) == 0).OnlyEnforceIf(e.Not())
-#        ce.append(e)
-#    penalties_notwithnew = []
-#    for T in t_withnew:
-#        t = Teachers[T]
-#        twe = []
-#        for C in courses_regular:
-#            c = Courses[C]
-#            with_community = model.NewBoolVar("")
-#            model.AddBoolAnd([tc[(t,c)], ce[c]]).OnlyEnforceIf(with_community)
-#            model.AddBoolOr([tc[(t,c)].Not(), ce[c].Not()]).OnlyEnforceIf(with_community.Not())
-#            twe.append(with_community)
-#        tnwe = model.NewBoolVar("")
-#        model.Add(sum(twe) == 0).OnlyEnforceIf(tnwe)
-#        model.Add(sum(twe) >= 1).OnlyEnforceIf(tnwe.Not())
-#        penalties_notwithnew.append(tnwe)
-#    penalties.append(sum(penalties_notwithnew) * PENALTY_NOTWITHNEW)
-
-#if PENALTY_BALBOA > 0:
-#    # at least one balboa course should precede Balboa Closed Training (slot 8)
-#    penalties_balboa = []
-#    b1 = model.NewBoolVar("")
-#    b2 = model.NewBoolVar("")
-#    model.Add(cs[Courses["Balboa Beginners 2"]] == 7).OnlyEnforceIf(b1)
-#    model.Add(cs[Courses["Balboa Beginners 2"]] != 7).OnlyEnforceIf(b1.Not())
-#    model.Add(cs[Courses["Balboa Advanced"]] == 7).OnlyEnforceIf(b2)
-#    model.Add(cs[Courses["Balboa Advanced"]] != 7).OnlyEnforceIf(b2.Not())
-#    b = model.NewBoolVar("")
-#    model.AddBoolOr([b1, b2]).OnlyEnforceIf(b.Not())
-#    model.AddBoolAnd([b1.Not(), b2.Not()]).OnlyEnforceIf(b)
-#    penalties_balboa.append(b)
-#    penalties.append(sum(penalties_balboa) * PENALTY_BALBOA)
-
-model.Minimize(sum(penalties))
+model.Minimize(sum(penalties_values))
 
 print(model.ModelStats())
 print()
 
-def print_solution(src, tc, objective=None):
+def print_solution(src, tc, penalties, objective=None):
     if objective:
         print(f"Objective value: {objective}")
     for s in range(len(slots)):
@@ -888,10 +939,22 @@ def print_solution(src, tc, objective=None):
                     if len(Ts) == 2 and Ts[0] in teachers_follow:
                         Ts[0], Ts[1] = Ts[1], Ts[2]
                     print(f"{slots[s]}\t {rooms[r]}\t{'+'.join(Ts)}\t{courses[c]}")
+    if penalties:
+        print("Penalties:")
+        total = 0
+        for (name, t) in penalties.items():
+            coeff, v = t
+            total += coeff * v
+            #print(f"{name}: {sum([solver.Value(p) for p in l])} * {PENALTIES[name]}")
+            if v:
+                if name in penalties_analysis:
+                    print(f"{name}: {v} * {coeff} = {v*coeff} ({', '.join(penalties_analysis[name](src, tc))})")
+                else:
+                    print(f"{name}: {v} * {coeff} = {v*coeff}")
+        print(f"TOTAL: {total}")
 
 class ContinuousSolutionPrinter(cp_model.CpSolverSolutionCallback):
     def __init__(self):
-        print("CSP")
         self.count = 0
         cp_model.CpSolverSolutionCallback.__init__(self)
 
@@ -906,11 +969,16 @@ class ContinuousSolutionPrinter(cp_model.CpSolverSolutionCallback):
         for t in range(len(teachers)):
             for c in range(len(courses)):
                 result_tc[(t,c)] = self.Value(tc[(t,c)])
+        result_penalties = {}
+        for (name, l) in penalties.items():
+            v = sum([self.Value(p) for p in l])
+            coeff = PENALTIES[name]
+            result_penalties[name] = (coeff, v)
         print(f"No: {self.count}")
         print(f"Wall time: {self.WallTime()}")
-        print(f"Branches: {self.NumBranches()}")
+        #print(f"Branches: {self.NumBranches()}")
         #print(f"Conflicts: {self.NumConflicts()}")
-        print_solution(result_src, result_tc, self.ObjectiveValue())
+        print_solution(result_src, result_tc, result_penalties, self.ObjectiveValue())
         print()
         self.count += 1
 
@@ -935,9 +1003,14 @@ result_tc = {}
 for t in range(len(teachers)):
     for c in range(len(courses)):
         result_tc[(t,c)] = solver.Value(tc[(t,c)])
+result_penalties = {}
+for (name, l) in penalties.items():
+    v = sum([solver.Value(p) for p in l])
+    coeff = PENALTIES[name]
+    result_penalties[name] = (coeff, v)
 print()
 print("SOLUTION:")
-print_solution(result_src, result_tc)
+print_solution(result_src, result_tc, result_penalties)
 
 print()
 print(f"Teachers' utilization:")
@@ -948,25 +1021,3 @@ for n in range(len(slots)):
             Ts.append(T)
     if Ts:
         print(f"{n}: {' '.join(Ts)}")
-
-print()
-print("Penalties:")
-if PENALTY_OVERWORK > 0:
-    print(f"Overwork: {sum([solver.Value(p) for p in penalties_overwork])}")
-if PENALTY_UNDERWORK > 0:
-    print(f"Underwork: {sum([solver.Value(p) for p in penalties_underwork])}")
-print(f"Days: {sum([solver.Value(p) for p in penalties_days])}")
-print(f"Split: {sum([solver.Value(p) for p in penalties_split])}")
-print(f"Daypref_bad: {sum([solver.Value(p) for p in penalties_daypref_bad])}")
-print(f"Daypref_slight: {sum([solver.Value(p) for p in penalties_daypref_slight])}")
-print(f"Timepref_bad: {sum([solver.Value(p) for p in penalties_timepref_bad])}")
-print(f"Timepref_slight: {sum([solver.Value(p) for p in penalties_timepref_slight])}")
-#print(f"Notwithnew: {sum([solver.Value(p) for p in penalties_notwithnew])}")
-#print(f"Balboa: {sum([solver.Value(p) for p in penalties_balboa])}")
-print(f"Rent: {solver.Value(smalltaken)}")
-print(f"Free_koliste: {solver.Value(free_koliste)}")
-print(f"Balboa_closed: {sum([solver.Value(p) for p in penalties_balboa_closed])}")
-print(f"Total: {sum([solver.Value(p) for p in penalties])}")
-
-
-# No s tím Balboa tréninkem to je vázaný ani ne na lekci, ale na lektory. Byl bych to já, Jarin, Kuba, Maťo a Ilca, Pavli, Ivča. Plus ideálně prvni nebo druhou lekci, aby mohla přijít i Poli.

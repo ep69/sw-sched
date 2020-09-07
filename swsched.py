@@ -1021,3 +1021,7 @@ for n in range(len(slots)):
             Ts.append(T)
     if Ts:
         print(f"{n}: {' '.join(Ts)}")
+
+# TODO:
+#  LH1 should really be in Koliste so new people can pay and get personal info
+#  concept of course attendance preferences, i.e. teacher T would like to be student in course C (time, venue, connected time)

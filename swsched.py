@@ -188,6 +188,7 @@ def check_course(course):
 COURSES_IGNORE = [
     #"Balboa Intermediate",
     "LH 1 - English",
+    "",
 ]
 
 def read_input(filename="input.csv"):
@@ -801,6 +802,7 @@ PENALTIES = {
     #"rent": 5000,
     "mosilana": 300,
     "balboa_closed": 100,
+    "attend_free": 100,
     "faketeachers": 100000,
 }
 
@@ -1092,8 +1094,7 @@ for (name, coeff) in PENALTIES.items():
         free_koliste = model.NewIntVar(0, 2*len(slots), "") # free slots in Koliste
         model.Add(free_koliste == 2*len(slots)-util_koliste-1) # -1 for Teachers Training
         penalties[name] = [free_koliste]
-    elif name == "balboa_closed": # penalty if interested people cannot attend Balboa Teachers Training (they teach something else in the same time)
-        # Poli is omitted as inactive
+    elif name == "balboa_closed": # penalty if interested in attending cannot attend (they teach something else in the same time)
         baltrain_people = ["Peťa", "Jarin", "Kuba-Š.", "Maťo", "Ilča", "Pavli", "Ivča"]
         penalties_balboa_closed = []
         for s in range(len(slots)):
@@ -1105,6 +1106,30 @@ for (name, coeff) in PENALTIES.items():
             model.Add(pbc == 0).OnlyEnforceIf(hit.Not())
             penalties_balboa_closed.append(pbc)
         penalties[name] = penalties_balboa_closed
+    elif name == "attend_free": # penalty if interested in attending cannot attend (they teach something else in the same time)
+        # courses that some teachers would like to attend
+        courses_attend = [input_data[T]["courses_attend"] for T in input_data]
+        courses_attend = [item for sl in courses_attend for item in sl] # flatten sublists
+        courses_attend = list(set(courses_attend)) # unique course names
+        debug(f"attend_free: courses_attend {courses_attend}")
+        for C in courses_attend:
+            debug(f"attend_free: courses {C}")
+            teachers_attend = []
+            for T in input_data:
+                if C in input_data[T]["courses_attend"]:
+                    teachers_attend.append(T)
+            debug(f"attend_free: teachers_attend {teachers_attend}")
+            #t = Teachers[T]
+            penalties_attend_free = []
+            for s in range(len(slots)):
+                hit = model.NewBoolVar("")
+                model.Add(cs[Courses[C]] == s).OnlyEnforceIf(hit)
+                model.Add(cs[Courses[C]] != s).OnlyEnforceIf(hit.Not())
+                penalty_slot = model.NewIntVar(0, len(teachers_attend)-1, "") # penalty for the slot
+                model.Add(penalty_slot == sum(ts[(Teachers[T],s)] for T in teachers_attend)).OnlyEnforceIf(hit)
+                model.Add(penalty_slot == 0).OnlyEnforceIf(hit.Not())
+                penalties_attend_free.append(penalty_slot)
+        penalties[name] = penalties_attend_free
 
 penalties_values = []
 for (name, l) in penalties.items():

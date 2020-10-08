@@ -231,8 +231,26 @@ def read_input(filename="input.csv"):
                         d["courses_attend"].remove(c)
                 for c in d["courses_attend"]:
                     check_course(c)
-                # TODO - translate names and actually respect it
-                d["teach_together"] = row["Who would you like to teach with?"].split()
+                teach_together = row["Who would you like to teach with?"]
+                if teach_together == "":
+                    teach_together = []
+                if teach_together:
+                    if name == "Janča":
+                        d["teach_together"] = ["Kepo", "Maťo", "Kuba-Š.", "Jarin"]
+                        # TODO what about teaching as lead?
+                    elif name == "Ilča":
+                        d["teach_together"] = ["Kuba-Š.", "Jarin", "Vojta-S."]
+                    elif name == "Kuba-B.":
+                        d["teach_together"] = ["Janča", "Ilča", "Lili"]
+                    elif name == "Vojta-S.":
+                        d["teach_together"] = ["Ilča"]
+                    elif name in ["Maťo", "Ivča", "Blaženka"]: # "ignore list"
+                        d["teach_together"] = []
+                    else:
+                        error(f"Unhandled teach_together preference {name}: {teach_together}")
+                else:
+                    d["teach_together"] = []
+
                 d["teach_not_together"] = [translate_teacher_name(x) for x in row["Are there any people you cannot teach with?"].split() if x not in ["-", "No", "není"]]
                 result[name] = d
             n += 1
@@ -298,6 +316,7 @@ for C in courses:
             warn(f"No initial set of teachers for course {C}")
         ct_possible[C] += FAKE_TEACHERS
 
+# translate input data to variables understood by the rest of the script
 for T in input_data:
     debug(f"Teacher {T}")
     data = input_data[T]
@@ -325,8 +344,7 @@ for T in input_data:
             tt_not_together.append((t, d))
     ts_pref[T] = data["slots"]
     assert(len(ts_pref[T]) == len(slots))
-    # attendance
-    #TODO
+    # attendance done directly through input_data
 
 #pprint(ct_possible)
 
@@ -801,8 +819,9 @@ PENALTIES = {
     "coursepref_slight": 50,
     #"rent": 5000,
     "mosilana": 300,
-    "balboa_closed": 100,
+    #"balboa_closed": 100,
     "attend_free": 100,
+    "teach_together": 100,
     "faketeachers": 100000,
 }
 
@@ -1094,18 +1113,18 @@ for (name, coeff) in PENALTIES.items():
         free_koliste = model.NewIntVar(0, 2*len(slots), "") # free slots in Koliste
         model.Add(free_koliste == 2*len(slots)-util_koliste-1) # -1 for Teachers Training
         penalties[name] = [free_koliste]
-    elif name == "balboa_closed": # penalty if interested in attending cannot attend (they teach something else in the same time)
-        baltrain_people = ["Peťa", "Jarin", "Kuba-Š.", "Maťo", "Ilča", "Pavli", "Ivča"]
-        penalties_balboa_closed = []
-        for s in range(len(slots)):
-            hit = model.NewBoolVar("")
-            model.Add(cs[Courses["Balboa Teachers Training"]] == s).OnlyEnforceIf(hit)
-            model.Add(cs[Courses["Balboa Teachers Training"]] != s).OnlyEnforceIf(hit.Not())
-            pbc = model.NewIntVar(0, len(baltrain_people)-1, "") # penalty for the slot
-            model.Add(pbc == sum(ts[(Teachers[T],s)] for T in baltrain_people)).OnlyEnforceIf(hit)
-            model.Add(pbc == 0).OnlyEnforceIf(hit.Not())
-            penalties_balboa_closed.append(pbc)
-        penalties[name] = penalties_balboa_closed
+#    elif name == "balboa_closed": # penalty if interested in attending cannot attend (they teach something else in the same time)
+#        baltrain_people = ["Peťa", "Jarin", "Kuba-Š.", "Maťo", "Ilča", "Pavli", "Ivča"]
+#        penalties_balboa_closed = []
+#        for s in range(len(slots)):
+#            hit = model.NewBoolVar("")
+#            model.Add(cs[Courses["Balboa Teachers Training"]] == s).OnlyEnforceIf(hit)
+#            model.Add(cs[Courses["Balboa Teachers Training"]] != s).OnlyEnforceIf(hit.Not())
+#            pbc = model.NewIntVar(0, len(baltrain_people)-1, "") # penalty for the slot
+#            model.Add(pbc == sum(ts[(Teachers[T],s)] for T in baltrain_people)).OnlyEnforceIf(hit)
+#            model.Add(pbc == 0).OnlyEnforceIf(hit.Not())
+#            penalties_balboa_closed.append(pbc)
+#        penalties[name] = penalties_balboa_closed
     elif name == "attend_free": # penalty if interested in attending cannot attend (they teach something else in the same time)
         # courses that some teachers would like to attend
         courses_attend = [input_data[T]["courses_attend"] for T in input_data]
@@ -1130,6 +1149,50 @@ for (name, coeff) in PENALTIES.items():
                 model.Add(penalty_slot == 0).OnlyEnforceIf(hit.Not())
                 penalties_attend_free.append(penalty_slot)
         penalties[name] = penalties_attend_free
+    elif name == "teach_together": # penalty if interested in teaching with Ts but teaches with noone
+        penalties_teach_together = []
+        # teachers with teach_together preferences
+        Ts = [T for T in input_data if input_data[T]["teach_together"]]
+        for T in Ts:
+            debug(f"teach_together: {T} + {input_data[T]['teach_together']}")
+            t = Teachers[T]
+            success_list = []
+            for c in range(len(courses)):
+                hit_self = model.NewBoolVar("")
+                hit_other = model.NewBoolVar("")
+                success = model.NewBoolVar("")
+                model.Add(tc[(t,c)] == 1).OnlyEnforceIf(hit_self)
+                model.Add(tc[(t,c)] == 0).OnlyEnforceIf(hit_self.Not())
+                model.Add(sum(tc[(Teachers[To],c)] for To in input_data[T]["teach_together"]) >= 1).OnlyEnforceIf(hit_other)
+                model.Add(sum(tc[(Teachers[To],c)] for To in input_data[T]["teach_together"]) == 0).OnlyEnforceIf(hit_other.Not())
+                model.AddBoolAnd([hit_self, hit_other]).OnlyEnforceIf(success)
+                model.AddBoolOr([hit_self.Not(), hit_other.Not()]).OnlyEnforceIf(success.Not())
+                success_list.append(success)
+            nobody = model.NewBoolVar("")
+            model.Add(sum(success_list) == 0).OnlyEnforceIf(nobody)
+            model.Add(sum(success_list) >= 1).OnlyEnforceIf(nobody.Not())
+            penalties_teach_together.append(nobody)
+        penalties[name] = penalties_teach_together
+        def analysis(src, tc):
+            result = []
+            Ts = [T for T in input_data if input_data[T]["teach_together"]]
+            for T in Ts:
+                debug(f"analysis teach_together: teacher {T}")
+                t = Teachers[T]
+                teachers_prefered = [Teachers[To] for To in input_data[T]["teach_together"]]
+                debug(f"analysis teach_together: teachers_prefered {teachers_prefered}")
+                teach_courses = [c for c in range(len(courses)) if tc[(t,c)]]
+                debug(f"analysis teach_together: teach_courses {teach_courses}")
+                success_courses = []
+                for c in teach_courses:
+                    if sum(tc[to,c] for to in teachers_prefered) >= 1:
+                        success_courses.append(c)
+                #success_courses = [c for c in teach_courses for to in teachers_prefered if sum([(to,c)]) >= 1]
+                debug(f"analysis teach_together: success_courses {[courses[x] for x in success_courses]}")
+                if not success_courses:
+                    result.append(f"{T}")
+            return result
+        penalties_analysis[name] = analysis
 
 penalties_values = []
 for (name, l) in penalties.items():

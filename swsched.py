@@ -60,9 +60,9 @@ TEACHERS = [
     ("Kuba-B.", "lead", True),
     ("Zbyňa", "lead", False),
     #("Radek-Š.", "lead", False),
-    ("FANTOMAS", "lead", False), # TODO
-    ("BATMAN", "lead", False), # TODO
-    ("CHUCK", "lead", False), # TODO
+    ("LEAD-1", "lead", False), # TODO
+    ("LEAD-2", "lead", False), # TODO
+    ("LEAD-3", "lead", False), # TODO
     ("Terka", "follow", False),
     ("Janča", "follow", False),
     ("Ilča", "follow", False),
@@ -79,11 +79,11 @@ TEACHERS = [
     #("Marie", "follow", False),
     #("Pavla-Š.", "follow", False),
     ("Míša-Z.", "follow", True),
-    ("SUPERGIRL", "follow", False), # TODO
-    ("XENA", "follow", False), # TODO
-    ("STORM", "follow", False), # TODO
+    ("FOLL-1", "follow", False), # TODO
+    ("FOLL-2", "follow", False), # TODO
+    ("FOLL-3", "follow", False), # TODO
     ]
-FAKE_TEACHERS = ["FANTOMAS", "BATMAN", "CHUCK", "SUPERGIRL", "XENA", "STORM"]
+FAKE_TEACHERS = ["LEAD-1", "LEAD-2", "LEAD-3", "FOLL-1", "FOLL-2", "FOLL-3"]
 
 teachers = [t[0] for t in TEACHERS]
 teachers_lead = [t[0] for t in TEACHERS if t[1] == "lead"]
@@ -832,13 +832,13 @@ for (name, coeff) in PENALTIES.items():
     if coeff == 0:
         warn(f"Penalties: skipping '{name}'")
         continue
-    if name == "utilization": # TODO
-        # teaching should be split evenly
+    if name == "utilization":
+        # teaching should be as close to preferences as possible
         penalties_utilization = []
         for T in t_util_ideal:
             t = Teachers[T]
             util_ideal = t_util_ideal[T]
-            MAX_DIFF = 10
+            MAX_DIFF = 10 # set according to preferences form
             min_diff = -MAX_DIFF
             max_diff = MAX_DIFF
             util_diff = model.NewIntVar(min_diff, max_diff, "")
@@ -1309,5 +1309,4 @@ for n in range(len(slots)):
         print(f"{n}: {' '.join(Ts)}")
 
 # TODO:
-#  LH1 should really be in Koliste so new people can pay and get personal info
 #  concept of course attendance preferences, i.e. teacher T would like to be student in course C (time, venue, connected time)

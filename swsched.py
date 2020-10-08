@@ -165,6 +165,7 @@ TEACHER_NAMES = {
     "Martin": "Martin Matuszek",
     "Tom-S.": "Tom S",
     "Vojta-S.": "Vojta Semerák",
+    "Kuba-Š.": "Kuba Šůstek",
 }
 
 def translate_teacher_name(name):
@@ -177,7 +178,7 @@ def translate_teacher_name(name):
     for k in TEACHER_NAMES:
         if name in TEACHER_NAMES[k]:
             return k
-    return f"UNKNOWN {name}"
+    error(f"Unknown teacher name {name}")
 
 def check_course(course):
     for c in courses:
@@ -196,9 +197,11 @@ def read_input(filename="input.csv"):
     with open(filename, mode="r") as f:
         reader = csv.DictReader(f)
         n = 0
-        cs = [] # courses
+        input_courses = [] # courses
         for row in reader:
-            if n == 0:
+            n += 1
+            if n == 1:
+                # check courses when handling the first row
                 columns = list(row.keys())
                 for col in columns:
                     if col.startswith("What courses would you like to teach?"):
@@ -207,53 +210,55 @@ def read_input(filename="input.csv"):
                             continue
                         check_course(course)
                         # problematic: Balboa Beginners 2
-                        cs.append(course)
-            else:
-                name = translate_teacher_name(row["Who are you?"])
-                d = {}
-                d["ncourses_ideal"] = int(row["How many courses would you ideally like to teach?"])
-                d["ncourses_max"] = int(row["How many courses are you able to teach at most?"])
-                slots = []
-                for day in ["Mon", "Tue", "Wed", "Thu"]:
-                    for time in ["17:30", "18:45", "20:00"]:
-                        slots.append(int(row[f"What days and times are convenient for you? [{day} {time}]"][0]))
-                d["slots"] = slots
-                d["mosilana"] = row["Are you fine with teaching in Mosilana?"] == "Yes"
-                courses_teach = {}
-                for c in cs:
-                    if c in COURSES_IGNORE:
-                        continue
-                    courses_teach[c] = int(row[f"What courses would you like to teach? [{c}]"][0])
-                d["courses_teach"] = courses_teach
-                d["courses_attend"] = row["What courses and trainings would you like to attend?"].split(";")
-                for c in d["courses_attend"]:
-                    if c in COURSES_IGNORE:
-                        d["courses_attend"].remove(c)
-                for c in d["courses_attend"]:
-                    check_course(c)
-                teach_together = row["Who would you like to teach with?"]
-                if teach_together == "":
-                    teach_together = []
-                if teach_together:
-                    if name == "Janča":
-                        d["teach_together"] = ["Kepo", "Maťo", "Kuba-Š.", "Jarin"]
-                        # TODO what about teaching as lead?
-                    elif name == "Ilča":
-                        d["teach_together"] = ["Kuba-Š.", "Jarin", "Vojta-S."]
-                    elif name == "Kuba-B.":
-                        d["teach_together"] = ["Janča", "Ilča", "Lili"]
-                    elif name == "Vojta-S.":
-                        d["teach_together"] = ["Ilča"]
-                    elif name in ["Maťo", "Ivča", "Blaženka"]: # "ignore list"
-                        d["teach_together"] = []
-                    else:
-                        error(f"Unhandled teach_together preference {name}: {teach_together}")
-                else:
+                        input_courses.append(course)
+            # handle the input data
+            name = translate_teacher_name(row["Who are you?"])
+            debug(f"Reading: name {name}")
+            d = {}
+            d["ncourses_ideal"] = int(row["How many courses would you ideally like to teach?"])
+            d["ncourses_max"] = int(row["How many courses are you able to teach at most?"])
+            slots = []
+            for day in ["Mon", "Tue", "Wed", "Thu"]:
+                for time in ["17:30", "18:45", "20:00"]:
+                    slots.append(int(row[f"What days and times are convenient for you? [{day} {time}]"][0]))
+            d["slots"] = slots
+            d["mosilana"] = row["Are you fine with teaching in Mosilana?"] == "Yes"
+            courses_teach = {}
+            for c in input_courses:
+                courses_teach[c] = int(row[f"What courses would you like to teach? [{c}]"][0])
+            d["courses_teach"] = courses_teach
+            d["courses_attend"] = row["What courses and trainings would you like to attend?"].split(";")
+            for c in d["courses_attend"]:
+                if c in COURSES_IGNORE:
+                    d["courses_attend"].remove(c)
+            for c in d["courses_attend"]:
+                check_course(c)
+            teach_together = row["Who would you like to teach with?"]
+            if teach_together == "":
+                teach_together = []
+            if teach_together:
+                if name == "Janča":
+                    d["teach_together"] = ["Kepo", "Maťo", "Kuba-Š.", "Jarin"]
+                    # TODO what about teaching as lead?
+                elif name == "Jarin":
+                    d["teach_together"] = ["Ilča"]
+                elif name == "Ilča":
+                    d["teach_together"] = ["Kuba-Š.", "Jarin", "Vojta-S."]
+                elif name == "Kuba-B.":
+                    d["teach_together"] = ["Janča", "Ilča", "Lili"]
+                elif name == "Kuba-Š.":
+                    d["teach_together"] = ["Ilča"] # TODO community teachers
+                elif name == "Vojta-S.":
+                    d["teach_together"] = ["Ilča"]
+                elif name in ["Maťo", "Ivča", "Blaženka"]: # "ignore list"
                     d["teach_together"] = []
+                else:
+                    error(f"Unhandled teach_together preference {name}: {teach_together}")
+            else:
+                d["teach_together"] = []
 
-                d["teach_not_together"] = [translate_teacher_name(x) for x in row["Are there any people you cannot teach with?"].split() if x not in ["-", "No", "není"]]
-                result[name] = d
-            n += 1
+            d["teach_not_together"] = [translate_teacher_name(x) for x in row["Are there any people you cannot teach with?"].split() if x not in ["-", "No", "není"]]
+            result[name] = d
     debug(f"Number of lines: {n}")
     #print(f"Column names: {columns}")
     return result

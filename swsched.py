@@ -101,6 +101,8 @@ Teachers = {}
 for (i, t) in enumerate(teachers):
     Teachers[t] = i
 
+people = teachers
+
 rooms_venues = {
     #"small": "mosilana",
     "big": "mosilana",
@@ -446,11 +448,37 @@ ts = {}
 for s in range(len(slots)):
     for t in range(len(teachers)):
         ts[(t,s)] = model.NewBoolVar("TS:t%is%i" % (t,s))
+# person P attends course C
+ac = {}
+for p in range(len(people)):
+    for c in range(len(courses)):
+        ac[(p,c)] = model.NewBoolVar("")
+# person P teaches or attends course C
+pc = {}
+for p in range(len(people)):
+    for c in range(len(courses)):
+        pc[(p,c)] = model.NewBoolVar("")
+# person P attends or teaches course C in slot S
+psc = {}
+for p in range(len(people)):
+    for s in range(len(slots)):
+        for c in range(len(courses)):
+            psc[(p,s,c)] = model.NewBoolVar("")
+# person P occupied (attends or teaches) in slot S
+ps = {}
+for s in range(len(slots)):
+    for p in range(len(people)):
+        ps[(p,s)] = model.NewBoolVar("PS:p%is%i" % (p,s))
 # teacher T teaches on day D
 td = {}
 for d in range(len(days)):
     for t in range(len(teachers)):
         td[(t,d)] = model.NewBoolVar("TD:t%id%i" % (t,d))
+# person P is occupied (teaches or attends courses) on day D
+pd = {}
+for d in range(len(days)):
+    for p in range(len(people)):
+        pd[(p,d)] = model.NewBoolVar("")
 # course C takes place in slot S
 cs = []
 for c in range(len(courses)):
@@ -492,10 +520,46 @@ for s in range(len(slots)):
     for t in range(len(teachers)):
         model.Add(sum(tsc[(t,s,c)] for c in range(len(courses))) == 1).OnlyEnforceIf(ts[(t,s)])
         model.Add(sum(tsc[(t,s,c)] for c in range(len(courses))) == 0).OnlyEnforceIf(ts[(t,s)].Not())
+# construct AC info (person P attends course C)
+for p in range(len(people)):
+    if people[p] in input_data:
+        courses_attend = input_data[people[p]]["courses_attend"]
+    else:
+        courses_attend = []
+    for c in range(len(courses)):
+        if [x for x in courses_attend if courses[c].startswith(x)]:
+            model.Add(ac[(p,c)] == 1)
+        else:
+            model.Add(ac[(p,c)] == 0)
+# construct PC info (person P attends or teaches course C)
+for p in range(len(people)):
+    for c in range(len(courses)):
+        model.AddBoolOr([tc[(p,c)], ac[(p,c)]]).OnlyEnforceIf(pc[(p,c)])
+        model.AddBoolAnd([tc[(p,c)].Not(), ac[(p,c)].Not()]).OnlyEnforceIf(pc[(p,c)].Not())
+# inferring PSC info - person P attends or teaches course C in slot S
+for s in range(len(slots)):
+    for c in range(len(courses)):
+        hit = model.NewBoolVar("") # course C is at slot S
+        model.Add(cs[c] == s).OnlyEnforceIf(hit)
+        model.Add(cs[c] != s).OnlyEnforceIf(hit.Not())
+        for p in range(len(people)):
+            model.AddBoolAnd([hit, pc[(p,c)]]).OnlyEnforceIf(psc[(p,s,c)])
+            model.AddBoolOr([hit.Not(), pc[(p,c)].Not()]).OnlyEnforceIf(psc[(p,s,c)].Not())
+# inferring PS info - person P attends or teaches course in slot S
+for s in range(len(slots)):
+    for p in range(len(people)):
+        model.Add(sum(psc[(p,s,c)] for c in range(len(courses))) == 1).OnlyEnforceIf(ps[(p,s)])
+        model.Add(sum(psc[(p,s,c)] for c in range(len(courses))) == 0).OnlyEnforceIf(ps[(p,s)].Not())
+# inferring TD info
 for d in range(len(days)):
     for t in range(len(teachers)):
         model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) >= 1).OnlyEnforceIf(td[(t,d)])
         model.Add(sum(ts[(t,s)] for s in range(d*len(times), (d+1)*len(times))) == 0).OnlyEnforceIf(td[(t,d)].Not())
+# inferring PD info
+for d in range(len(days)):
+    for p in range(len(people)):
+        model.Add(sum(ps[(p,s)] for s in range(d*len(times), (d+1)*len(times))) >= 1).OnlyEnforceIf(pd[(p,d)])
+        model.Add(sum(ps[(p,s)] for s in range(d*len(times), (d+1)*len(times))) == 0).OnlyEnforceIf(pd[(p,d)].Not())
 
 # inferring TDV info
 for s in range(len(slots)):
@@ -528,6 +592,11 @@ teach_num = {}
 for t in range(len(teachers)):
     teach_num[t] = model.NewIntVar(0, len(slots), "Tteach_num:%i" % t)
     model.Add(teach_num[t] == sum(tc[(t,c)] for c in range(len(courses))))
+# number of slots person P occupies (teaches or attends)
+occupied_num = {}
+for p in range(len(people)):
+    occupied_num[p] = model.NewIntVar(0, len(slots), "")
+    model.Add(occupied_num[p] == sum(ps[(p,s)] for s in range(len(slots))))
 
 # prevent teachers from teaching in two rooms in the same time
 for t in range(len(teachers)):
@@ -813,6 +882,7 @@ if damian and t_util_max.get("Pavli", 0) >= 2 and t_util_max.get("Tom-K.", 0) >=
 PENALTIES = {
     "utilization": 100, # squared
     "days": 300,
+    "occupied_days": 50,
     "split": 300,
     #"daypref_bad": 300,
     #"daypref_slight": 50,
@@ -902,6 +972,43 @@ for (name, coeff) in PENALTIES.items():
                         n_days += 1
                 if n_days*len(times) - n_courses >= len(times):
                     result.append(f"{teachers[t]} {n_courses}c/{n_days}d")
+            return result
+        penalties_analysis[name] = analysis
+    elif name == "occupied_days":
+        # nobody should come more days then necessary - including attending courses
+        penalties_occupied_days = []
+        for p in range(len(people)):
+            occupied_days = model.NewIntVar(0, len(days), "")
+            model.Add(occupied_days == sum(pd[(p,d)] for d in range(len(days))))
+            occupied_some = model.NewBoolVar("")
+            model.Add(occupied_num[p] >= 1).OnlyEnforceIf(occupied_some)
+            model.Add(occupied_num[p] == 0).OnlyEnforceIf(occupied_some.Not())
+            occupied_minus_1 = model.NewIntVar(0, len(days), "")
+            model.Add(occupied_minus_1 == occupied_num[p] - 1).OnlyEnforceIf(occupied_some)
+            model.Add(occupied_minus_1 == 0).OnlyEnforceIf(occupied_some.Not())
+            should_occupy_days = model.NewIntVar(0, len(days), "")
+            model.AddDivisionEquality(should_occupy_days, occupied_minus_1, len(times)) # -1 to compensate rounding down
+            occupied_days_extra = model.NewIntVar(0, len(days), "")
+            model.Add(occupied_days_extra == occupied_days - should_occupy_days - 1).OnlyEnforceIf(occupied_some) # -1 to compensate rounding down
+            model.Add(occupied_days_extra == 0).OnlyEnforceIf(occupied_some.Not())
+            occupied_days_extra_sq = model.NewIntVar(0, len(days)**2, "")
+            model.AddMultiplicationEquality(occupied_days_extra_sq, [occupied_days_extra, occupied_days_extra])
+            penalties_occupied_days.append(occupied_days_extra_sq)
+        penalties[name] = penalties_occupied_days
+        def analysis(src, tc):
+            result = []
+            for p in range(len(people)):
+                occupied_courses = []
+                for c in range(len(courses)):
+                    if tc[(p,c)] or (people[p] in input_data and [x for x in input_data[people[p]]["courses_attend"] if courses[c].startswith(x)]):
+                        occupied_courses.append(c)
+                n_courses = len(occupied_courses)
+                n_days = 0
+                for d in range(len(days)):
+                    if sum(src[(s,r,c)] for s in range(d*len(times), (d+1)*len(times)) for r in range(len(rooms)) for c in occupied_courses):
+                        n_days += 1
+                if n_days*len(times) - n_courses >= len(times):
+                    result.append(f"{people[p]} {n_courses}c/{n_days}d")
             return result
         penalties_analysis[name] = analysis
     elif name == "split":
@@ -1238,11 +1345,10 @@ def print_solution(src, tc, penalties, objective=None):
             coeff, v = t
             total += coeff * v
             #print(f"{name}: {sum([solver.Value(p) for p in l])} * {PENALTIES[name]}")
-            if v:
-                if name in penalties_analysis:
-                    print(f"{name}: {v} * {coeff} = {v*coeff} ({', '.join(penalties_analysis[name](src, tc))})")
-                else:
-                    print(f"{name}: {v} * {coeff} = {v*coeff}")
+            if v == 0 or name not in penalties_analysis:
+                print(f"{name}: {v} * {coeff} = {v*coeff}")
+            else:
+                print(f"{name}: {v} * {coeff} = {v*coeff} ({', '.join(penalties_analysis[name](src, tc))})")
         print(f"TOTAL: {total}")
 
 class ContinuousSolutionPrinter(cp_model.CpSolverSolutionCallback):
@@ -1261,6 +1367,23 @@ class ContinuousSolutionPrinter(cp_model.CpSolverSolutionCallback):
         for t in range(len(teachers)):
             for c in range(len(courses)):
                 result_tc[(t,c)] = self.Value(tc[(t,c)])
+        for p in range(len(people)):
+            m = f"ps/pd analysis: {people[p]}\t"
+            m += " slots "
+            for s in range(len(slots)):
+                if self.Value(ps[(p,s)]):
+                    m += "1"
+                else:
+                    m += "0"
+            m += " num "
+            m += f"{self.Value(occupied_num[p])}"
+            m += " days "
+            for d in range(len(days)):
+                if self.Value(pd[(p,d)]):
+                    m += "1"
+                else:
+                    m += "0"
+            debug(m)
         result_penalties = {}
         for (name, l) in penalties.items():
             v = sum([self.Value(p) for p in l])

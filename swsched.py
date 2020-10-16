@@ -497,6 +497,7 @@ for t in range(len(teachers)):
                 tscv[(t,s,c,v)] = model.NewBoolVar("")
 
 # teacher T teaches in venue V on day D
+# TODO do it wrt. attending courses - cannot teach in Koliste, attend in Mosilana, and teach again in Koliste
 tdv = {}
 for t in range(len(teachers)):
     for d in range(len(days)):
@@ -669,101 +670,24 @@ for T1, T2 in tt_not_together:
     for c in range(len(courses)):
         model.Add(sum(tc[(t,c)] for t in [Teachers[T1], Teachers[T2]]) < 2)
 
+# TODO: this should be loosened, also wrt. attending
 # teacher T does not teach in two venues in the same day
 for t in range(len(teachers)):
     for d in range(len(days)):
         model.Add(sum(tdv[(t,d,v)] for v in range(len(venues))) <= 1)
-
-# Teachers' time preferences
-# TODO: find a better place for this part
-
-# teacher T availability at day D:
-#   0 cannot
-#   1 barely
-#   2 fine (default)
-#   3 great
-#td_pref = {}
-#td_pref[("Tom-S.", "Monday")] = 0
-#td_pref[("Tom-S.", "Tuesday")] = 3
-#td_pref[("Tom-K.", "Tuesday")] = 0
-#td_pref[("Tom-K.", "Wednesday")] = 3
-#td_pref[("Tom-K.", "Thursday")] = 0
-#td_pref[("Maťo", "Tuesday")] = 3
-#td_pref[("Maťo", "Wednesday")] = 3
-#td_pref[("Michal", "Monday")] = 0
-#td_pref[("Radek-Š.", "Monday")] = 0
-#td_pref[("Radek-Š.", "Wednesday")] = 0
-#td_pref[("Terka", "Thursday")] = 0
-#td_pref[("Janča", "Monday")] = 3
-#td_pref[("Janča", "Tuesday")] = 3
-#td_pref[("Janča", "Wednesday")] = 3
-#td_pref[("Ilča", "Tuesday")] = 3
-#td_pref[("Ilča", "Wednesday")] = 3
-#td_pref[("Ilča", "Thursday")] = 3
-#td_pref[("Pavli", "Tuesday")] = 0
-#td_pref[("Pavli", "Wednesday")] = 3
-#td_pref[("Pavli", "Thursday")] = 0
-#td_pref[("Lili", "Tuesday")] = 3
-#td_pref[("Lili", "Wednesday")] = 0
-#td_pref[("Lili", "Thursday")] = 3
-#td_pref[("Zuzka", "Tuesday")] = 0
-#td_pref[("Zuzka", "Thursday")] = 3
-#td_pref[("Pavla-Š.", "Monday")] = 0
-#td_pref[("Pavla-Š.", "Wednesday")] = 0
-#td_pref[("Míša-Z.", "Wednesday")] = 0
-
-# teacher T availability at time X (0 - first slot, 1 - second slot, 2 - third slot):
-#   0 cannot
-#   1 barely
-#   2 fine (default)
-#   3 great
-#ttime_pref = {}
-#ttime_pref[("Jarin", 2)] = 1
-#ttime_pref[("Peťa", 0)] = 3
-#ttime_pref[("Peťa", 2)] = 0
-#ttime_pref[("Tom-S.", 0)] = 3
-#ttime_pref[("Tom-S.", 1)] = 3
-#ttime_pref[("Radek-Š.", 0)] = 0
-#ttime_pref[("Lili", 2)] = 1
-#ttime_pref[("Mária", 2)] = 0 # TODO
-#ttime_pref[("Silvia", 2)] = 0 # TODO
-#ttime_pref[("Zuzka", 0)] = 0
-#ttime_pref[("Pavla-Š.", 0)] = 0
-
-# strict teacher-slot constraints:
-# Standa cannot teach the first Tuesday slot
-model.Add(ts[(Teachers["Standa"],3)] == 0)
-# Vojta-N. wants to hang out with students, so prefers NOT to teach right before Teachers Training
-model.Add(ts[(Teachers["Vojta-N."],10)] == 0)
-# Ilča cannot teach on Wednesday evening
-model.Add(ts[(Teachers["Ilča"],8)] == 0)
-# Kuba "teaches" Teachers Training
-#model.Add(ts[(Teachers["Kuba-Š."],11)] == 0)
 
 # strict courses schedule
 # Teachers training must be at Thursday evening
 model.Add(cs[Courses["Teachers Training"]] == 11)
 # nothing else happens in parallel with Teachers Training
 model.Add(sum(src[(11,r,c)] for r in range(len(rooms)) for c in range(len(courses))) == 1)
-# Balboa Training must be at Wednesday evening
-#model.Add(cs[Courses["Balboa Teachers Training"]] == 8)
-# Blues Training must not be on Monday
-#model.Add(cs[Courses["Blues/Slow Open Training"]] > 2)
 # Shag/Balboa open is AFTER Collegiate Shag 2 (combined with courses_same
 model.Add(cs[Courses["Collegiate Shag 2"]]+1 == cs[Courses["Shag/Balboa Open Training"]])
-# Balboa Teachers Training does not take place in the last evening slot so Poli can attend
-c = Courses["Balboa Teachers Training"]
-for d in range(len(days)):
-    model.Add(cs[c] != d*len(times)+2)
 # PJ training must happen on Tuesday and Thursday
 model.Add(cs[Courses["PJ Group /1"]] >= 3)
 model.Add(cs[Courses["PJ Group /1"]] <= 5)
 model.Add(cs[Courses["PJ Group /2"]] >= 9)
 model.Add(cs[Courses["PJ Group /2"]] <= 11)
-
-#c = Courses["Lindy 45"]
-#for d in range(len(days)):
-#    model.Add(cs[c] != d*len(times)+0)
 
 # teachers HARD slot preferences
 for T in teachers:
@@ -771,12 +695,6 @@ for T in teachers:
         for s, v in enumerate(ts_pref[T]):
             if v == 0:
                 model.Add(ts[(Teachers[T], s)] == 0)
-
-# strict time preferences
-#for (T,t), n in ttime_pref.items():
-#    if n == 0: # T cannot teach on day D
-#        for d in range(len(days)):
-#            model.Add(ts[(Teachers[T], d*len(times)+t)] == 0)
 
 # same courses should not happen in same days and also not in same times
 # it should probably not be a strict limitation, but it is much easier to write
@@ -853,13 +771,6 @@ for C in courses_solo:
 
 # Rather specific constraints:
 
-# course has to take place at specific slot and room
-#model.Add(src[(0,Rooms["big"],Courses["Airsteps 2"])] == 1)
-
-# course has to take place at specific slot
-#model.Add(sum(src[(0,r,Courses["Collegiate Shag 1"])] for r in range(len(rooms))) == 1)
-
-
 # Damian
 damian = True
 if damian and t_util_max.get("Pavli", 0) >= 2 and t_util_max.get("Tom-K.", 0) >= 1:
@@ -884,17 +795,11 @@ PENALTIES = {
     "days": 300,
     "occupied_days": 50,
     "split": 300,
-    #"daypref_bad": 300,
-    #"daypref_slight": 50,
-    #"timepref_bad": 300,
-    #"timepref_slight": 50,
     "slotpref_bad": 300,
     "slotpref_slight": 50,
     "coursepref_bad": 300,
     "coursepref_slight": 50,
-    #"rent": 5000,
     "mosilana": 300,
-    #"balboa_closed": 100,
     "attend_free": 100,
     "teach_together": 100,
     "faketeachers": 100000,
@@ -1051,49 +956,6 @@ for (name, coeff) in PENALTIES.items():
                     result.append(f"{teachers[t]}/{n}")
             return result
         penalties_analysis[name] = analysis
-#    elif name == "daypref_bad":
-#        # day preferences
-#        penalties_daypref_bad = []
-#        for T in teachers:
-#            t = Teachers[T]
-#            prefs = []
-#            for D in days:
-#                prefs.append(td_pref.get((T,D), 2))
-#            if set(prefs) - set([0, 2]): # teacher T prefers some days over others
-#                if 1 in set(prefs): # some days are bad
-#                    days_bad = [d for d in range(len(prefs)) if prefs[d] == 1]
-#                    penalties_daypref_bad.append(sum(td[(t,d)] for d in days_bad))
-#        penalties[name] = penalties_daypref_bad
-#        def analysis(src, tc):
-#            result = []
-#            for t in range(len(teachers)):
-#                cs = []
-#                for c in range(len(courses)):
-#                    if tc[(t,c)]:
-#                        cs.append(c)
-#                bad_days = []
-#                for d in range(len(days)):
-#                    if td_pref.get((teachers[t],days[d]), 2) == 1:
-#                        if sum(src[(s,r,c)]  for s in range(d*len(times),(d+1)*len(times)) for r in range(len(rooms)) for c in cs) >= 1:
-#                            bad_days.append(d)
-#                if bad_days:
-#                    result.append(f"{teachers[t]}/{','.join([days[d] for d in bad_days])}")
-#            return result
-#        penalties_analysis[name] = analysis
-#    elif name == "daypref_slight":
-#        # day preferences
-#        penalties_daypref_slight = []
-#        for T in teachers:
-#            t = Teachers[T]
-#            prefs = []
-#            for D in days:
-#                prefs.append(td_pref.get((T,D), 2))
-#            if set(prefs) - set([0, 2]): # teacher T prefers some days over others
-#                if set([2,3]) <= set(prefs):
-#                    # days that are slightly less preferred
-#                    days_slight_worse = [d for d in range(len(prefs)) if prefs[d] == 2]
-#                    penalties_daypref_slight.append(sum(td[(t,d)] for d in days_slight_worse))
-#        penalties[name] = penalties_daypref_slight
     elif name == "slotpref_bad":
         # slots preferences
         penalties_slotpref_bad = []
@@ -1225,18 +1087,6 @@ for (name, coeff) in PENALTIES.items():
         free_koliste = model.NewIntVar(0, 2*len(slots), "") # free slots in Koliste
         model.Add(free_koliste == 2*len(slots)-util_koliste-1) # -1 for Teachers Training
         penalties[name] = [free_koliste]
-#    elif name == "balboa_closed": # penalty if interested in attending cannot attend (they teach something else in the same time)
-#        baltrain_people = ["Peťa", "Jarin", "Kuba-Š.", "Maťo", "Ilča", "Pavli", "Ivča"]
-#        penalties_balboa_closed = []
-#        for s in range(len(slots)):
-#            hit = model.NewBoolVar("")
-#            model.Add(cs[Courses["Balboa Teachers Training"]] == s).OnlyEnforceIf(hit)
-#            model.Add(cs[Courses["Balboa Teachers Training"]] != s).OnlyEnforceIf(hit.Not())
-#            pbc = model.NewIntVar(0, len(baltrain_people)-1, "") # penalty for the slot
-#            model.Add(pbc == sum(ts[(Teachers[T],s)] for T in baltrain_people)).OnlyEnforceIf(hit)
-#            model.Add(pbc == 0).OnlyEnforceIf(hit.Not())
-#            penalties_balboa_closed.append(pbc)
-#        penalties[name] = penalties_balboa_closed
     elif name == "attend_free": # penalty if interested in attending cannot attend (they teach something else in the same time)
         # courses that some teachers would like to attend
         courses_attend = [input_data[T]["courses_attend"] for T in input_data]
@@ -1315,7 +1165,7 @@ model.Minimize(sum(penalties_values))
 print(model.ModelStats())
 print()
 
-def print_solution(src, tc, penalties, objective=None):
+def print_solution(src, tc, penalties, objective=None, utilization=True):
     if objective:
         print(f"Objective value: {objective}")
     for s in range(len(slots)):
@@ -1344,12 +1194,19 @@ def print_solution(src, tc, penalties, objective=None):
         for (name, t) in penalties.items():
             coeff, v = t
             total += coeff * v
-            #print(f"{name}: {sum([solver.Value(p) for p in l])} * {PENALTIES[name]}")
             if v == 0 or name not in penalties_analysis:
                 print(f"{name}: {v} * {coeff} = {v*coeff}")
             else:
                 print(f"{name}: {v} * {coeff} = {v*coeff} ({', '.join(penalties_analysis[name](src, tc))})")
-        print(f"TOTAL: {total}")
+    if utilization:
+        debug("UTILIZATION:")
+        tn = {}
+        for t in range(len(teachers)):
+            tn[teachers[t]] = sum(tc[t,c] for c in range(len(courses)))
+        for v in sorted(set(tn.values())):
+            print(f"{v}: {', '.join(t for t in tn if tn[t] == v)}")
+    print(f"TOTAL: {total}")
+
 
 class ContinuousSolutionPrinter(cp_model.CpSolverSolutionCallback):
     def __init__(self):
@@ -1357,7 +1214,7 @@ class ContinuousSolutionPrinter(cp_model.CpSolverSolutionCallback):
         cp_model.CpSolverSolutionCallback.__init__(self)
 
     def OnSolutionCallback(self):
-    #def on_solution_callback(self):
+        self.count += 1
         result_src = {}
         for s in range(len(slots)):
             for r in range(len(rooms)):
@@ -1395,36 +1252,14 @@ class ContinuousSolutionPrinter(cp_model.CpSolverSolutionCallback):
         #print(f"Conflicts: {self.NumConflicts()}")
         print_solution(result_src, result_tc, result_penalties, self.ObjectiveValue())
         print()
-        self.count += 1
-
 
 solver = cp_model.CpSolver()
 #solver.parameters.max_time_in_seconds = 20.0
-#status = solver.Solve(model)
-#status = solver.SolveWithSolutionCallback(model, cp_model.ObjectiveSolutionPrinter())
 status = solver.SolveWithSolutionCallback(model, ContinuousSolutionPrinter())
 statusname = solver.StatusName(status)
 print(f"Solving finished in {solver.WallTime()} seconds with status {status} - {statusname}")
 if statusname not in ["FEASIBLE", "OPTIMAL"]:
-    error("Solution NOT found")
-
-result_src = {}
-for s in range(len(slots)):
-    for r in range(len(rooms)):
-        for c in range(len(courses)):
-                result_src[(s,r,c)] = solver.Value(src[(s,r,c)])
-result_tc = {}
-for t in range(len(teachers)):
-    for c in range(len(courses)):
-        result_tc[(t,c)] = solver.Value(tc[(t,c)])
-result_penalties = {}
-for (name, l) in penalties.items():
-    v = sum([solver.Value(p) for p in l])
-    coeff = PENALTIES[name]
-    result_penalties[name] = (coeff, v)
-print()
-print("SOLUTION:")
-print_solution(result_src, result_tc, result_penalties)
+    error(f"Solution NOT found - status {statusname}")
 
 print()
 print(f"Teachers' utilization:")
@@ -1435,6 +1270,3 @@ for n in range(len(slots)):
             Ts.append(T)
     if Ts:
         print(f"{n}: {' '.join(Ts)}")
-
-# TODO:
-#  concept of course attendance preferences, i.e. teacher T would like to be student in course C (time, venue, connected time)
